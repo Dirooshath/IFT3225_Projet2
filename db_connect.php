@@ -1,7 +1,7 @@
 <?php
 function dbConnect() {
     $host = 'localhost';  // ou l'adresse du serveur MySQL (DIRO?)
-    $db   = 'projet2';    // nom de ta base
+    $db   = 'projet2_ift3225';    // nom de ta base
     $user = 'root';       // ton user MySQL
     $pass = '';           // ton mot de passe
 
