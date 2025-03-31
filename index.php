@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json');  // Retourne du JSON
-require_once 'db_connect.php';
+require_once 'db_connect.php'; // <-- contient la fonction dbConnect()
 
 // Récupère la route brute via ?path=xxx
 $path = isset($_GET['path']) ? $_GET['path'] : '';
@@ -18,6 +18,12 @@ switch ($segments[0]) {
         handleAdmin($method, $segments);
         break;
 
+    // ************* NOUVEL AJOUT : route "word" *************
+    case 'word':
+        handleWord($method, $segments);
+        break;
+    // ************* FIN AJOUT ********************************
+
     default:
         echo json_encode(["error" => "Route inconnue"]);
         http_response_code(404);
@@ -28,9 +34,6 @@ switch ($segments[0]) {
    Gestion des joueurs (/gamers)
 ----------------------------------------------------------------------- */
 function handleGamers($method, $segments) {
-    // /gamers/<joueur> => ["gamers", "<joueur>"]
-    // /gamers/add/<joueur>/<pwd> => ["gamers", "add", "<joueur>", "<pwd>"]
-
     if (count($segments) == 2 && $method == 'GET') {
         // GET /gamers/<joueur>
         $joueur = $segments[1];
@@ -227,4 +230,58 @@ function deleteDefinition($defId) {
     $del->execute([':id' => $defId]);
 
     echo json_encode(["message" => "Definition supprimee", "id" => $defId]);
+}
+
+/* -----------------------------------------------------------------------
+   NOUVELLE SECTION : gestion de /word/<nb>
+----------------------------------------------------------------------- */
+function handleWord($method, $segments) {
+    // L’URL attendue : GET /word/<nb>
+    // ex: ?path=word/5 => $segments = ["word","5"], $method = "GET"
+
+    if ($method == 'GET' && count($segments) == 2) {
+        // On récupère la valeur de nb
+        $nb = (int)$segments[1];
+        if ($nb <= 0) {
+            $nb = 10; // valeur par défaut
+        }
+
+        $pdo = dbConnect();
+
+        // Requête pour retourner $nb définitions
+        // Adaptez selon votre schéma de table
+        $sql = "SELECT id, word, def
+                FROM definitions
+                ORDER BY id
+                LIMIT :limitN";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindValue(':limitN', $nb, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Regrouper par mot (optionnel, comme dans l’exemple)
+        $grouped = [];
+        foreach ($rows as $row) {
+            $w = $row['word'];
+            if (!isset($grouped[$w])) {
+                $grouped[$w] = [
+                    'word' => $w,
+                    'id'   => $row['id'],
+                    'def'  => []
+                ];
+            }
+            $grouped[$w]['def'][] = $row['def'];
+        }
+
+        // Convertir en tableau indexé (optionnel)
+        $result = array_values($grouped);
+
+        // Renvoyer en JSON
+        echo json_encode($result, JSON_PRETTY_PRINT);
+    }
+    else {
+        echo json_encode(["error" => "Route /word invalide"]);
+        http_response_code(400);
+    }
 }
