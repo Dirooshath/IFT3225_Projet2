@@ -1,71 +1,80 @@
 <?php
-header('Content-Type: application/json');  // Retourne du JSON
+header('Content-Type: application/json');  // On retourne des réponses en JSON
 require_once 'db_connect.php';
 
-// Récupère la route brute via ?path=xxx
+// 1) On récupère la route via ?path=xxx (exemple : ?path=gamers/add/john/pass)
 $path = isset($_GET['path']) ? $_GET['path'] : '';
 $segments = explode('/', $path);
 
-// Ex: /gamers/add/john/pass => $segments = ["gamers", "add", "john", "pass"]
-$method = $_SERVER['REQUEST_METHOD']; // GET, POST, PUT, DELETE, etc.
+// 2) On récupère la méthode HTTP (GET, POST, etc.)
+$method = $_SERVER['REQUEST_METHOD'];
 
+// 3) On dirige selon le premier segment
 switch ($segments[0]) {
     case 'gamers':
         handleGamers($method, $segments);
         break;
-    // case 'admin':
-    //     ...
-    //     break;
-    // case 'word':
-    //     ...
-    //     break;
+
+    case 'admin':
+        handleAdmin($method, $segments);
+        break;
+
     default:
+        // Si aucun case ne correspond
         echo json_encode(["error" => "Route inconnue"]);
         http_response_code(404);
+        break;
 }
 
+/* -------------------------------------------------------------
+   GESTION DES ROUTES /gamers
+   ------------------------------------------------------------- */
 function handleGamers($method, $segments) {
-    // gamers/<joueur> => $segments = ["gamers", "<joueur>"]
-    // gamers/add/<joueur>/<pwd> => $segments = ["gamers", "add", "<joueur>", "<pwd>"]
+    //  /gamers/<joueur> => $segments = ["gamers", "<joueur>"]
+    //  /gamers/add/<joueur>/<pwd> => $segments = ["gamers", "add", "<joueur>", "<pwd>"]
+
+    // GET /gamers/<joueur>
     if (count($segments) == 2 && $method == 'GET') {
-        // GET /gamers/<joueur>
         $joueur = $segments[1];
         getGamer($joueur);
     }
+
+    // POST /gamers/add/<joueur>/<pwd>
     elseif (count($segments) == 4 && $segments[1] === 'add' && $method == 'POST') {
-        // POST /gamers/add/<joueur>/<pwd>
         $joueur = $segments[2];
-        $pwd = $segments[3];
+        $pwd    = $segments[3];
         addGamer($joueur, $pwd);
     }
+
+    // GET /gamers/login/<joueur>/<pwd>
     elseif (count($segments) == 4 && $segments[1] === 'login' && $method == 'GET') {
-        // GET /gamers/login/<joueur>/<pwd>
         $joueur = $segments[2];
-        $pwd = $segments[3];
+        $pwd    = $segments[3];
         loginGamer($joueur, $pwd);
     }
+
+    // GET /gamers/logout/<joueur>/<pwd>
     elseif (count($segments) == 4 && $segments[1] === 'logout' && $method == 'GET') {
-        // GET /gamers/logout/<joueur>/<pwd>
         $joueur = $segments[2];
-        $pwd = $segments[3];
+        $pwd    = $segments[3];
         logoutGamer($joueur, $pwd);
     }
+
     else {
         echo json_encode(["error" => "Route /gamers invalide"]);
         http_response_code(400);
     }
 }
 
-// -----------------------------------------------------------------------
-// Fonctions de gestion "gamers"
 function getGamer($login) {
     $pdo = dbConnect();
+
     $sql = "SELECT * FROM joueurs WHERE login = :login";
     $stmt = $pdo->prepare($sql);
     $stmt->bindValue(':login', $login);
     $stmt->execute();
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($row) {
         echo json_encode($row);
     } else {
@@ -86,9 +95,10 @@ function addGamer($login, $pwd) {
         return;
     }
 
-    // Hasher le mot de passe (FORTEMENT RECOMMANDÉ)
+    // Hachage du mot de passe
     $hash = password_hash($pwd, PASSWORD_BCRYPT);
 
+    // Insertion en base
     $sql = "INSERT INTO joueurs (login, pwd, parties_jouees, parties_gagnees, score, derniere_connexion)
             VALUES (:login, :pwd, 0, 0, 0, NULL)";
     $stmt = $pdo->prepare($sql);
@@ -96,13 +106,15 @@ function addGamer($login, $pwd) {
     $stmt->bindValue(':pwd', $hash);
     $stmt->execute();
 
-    // Retourner l'id du nouveau joueur
+    // Retourne l'id du nouveau joueur
     $newId = $pdo->lastInsertId();
     echo json_encode(["message" => "Joueur ajouté", "id" => $newId]);
 }
 
 function loginGamer($login, $pwd) {
     $pdo = dbConnect();
+
+    // On va chercher l'utilisateur
     $sql = "SELECT id, pwd FROM joueurs WHERE login = :login";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':login' => $login]);
@@ -114,10 +126,9 @@ function loginGamer($login, $pwd) {
         return;
     }
 
-    // Vérifier le mot de passe hashé
+    // Vérification du mot de passe
     if (password_verify($pwd, $row['pwd'])) {
-        // On peut simuler un "login" => par ex., mettre un champ dans la table "sessions" ou "joueurs"
-        // Mettre à jour la date de dernière connexion
+        // On met à jour la date de dernière connexion
         $update = $pdo->prepare("UPDATE joueurs SET derniere_connexion = NOW() WHERE id = :id");
         $update->execute([':id' => $row['id']]);
 
@@ -130,6 +141,8 @@ function loginGamer($login, $pwd) {
 
 function logoutGamer($login, $pwd) {
     $pdo = dbConnect();
+
+    // On vérifie que le joueur existe et que le mdp correspond
     $sql = "SELECT id, pwd FROM joueurs WHERE login = :login";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':login' => $login]);
@@ -141,7 +154,39 @@ function logoutGamer($login, $pwd) {
         return;
     }
 
-    // Ici, on simule une déconnexion => ex: on met est_connecte=0 dans la table "sessions" (à toi de définir la logique)
-    // Pour le démo, on renvoie juste "logout OK"
+    // Ici on fait semblant de déconnecter l'utilisateur
     echo json_encode(["message" => "Déconnexion OK"]);
+}
+
+/* -------------------------------------------------------------
+   GESTION DES ROUTES /admin
+   ------------------------------------------------------------- */
+function handleAdmin($method, $segments) {
+    // /admin/top[/<nb>] => Ex: /admin/top/5
+    if (count($segments) >= 2 && $segments[1] === 'top' && $method == 'GET') {
+        // Par défaut on veut le top 5, sinon on prend un nb
+        $nb = 5;
+        if (isset($segments[2])) {
+            $nb = (int) $segments[2];
+        }
+        getTopScores($nb);
+    }
+    else {
+        echo json_encode(["error" => "Route /admin invalide"]);
+        http_response_code(400);
+    }
+}
+
+function getTopScores($nb) {
+    $pdo = dbConnect();
+
+    // On récupère les joueurs avec le plus haut score
+    $sql = "SELECT login, score FROM joueurs ORDER BY score DESC LIMIT :limit";
+    $stmt = $pdo->prepare($sql);
+    // On doit préciser PDO::PARAM_INT pour le LIMIT
+    $stmt->bindValue(':limit', $nb, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    echo json_encode($rows);
 }
