@@ -71,7 +71,7 @@ function getGamer($login) {
     if ($row) {
         echo json_encode($row);
     } else {
-        echo json_encode(["error" => "Joueur non trouvé"]);
+        echo json_encode(["error" => "Joueur non trouve"]);
         http_response_code(404);
     }
 }
@@ -83,7 +83,7 @@ function addGamer($login, $pwd) {
     $check = $pdo->prepare("SELECT id FROM joueurs WHERE login = :login");
     $check->execute([':login' => $login]);
     if ($check->fetch()) {
-        echo json_encode(["error" => "Ce login existe déjà"]);
+        echo json_encode(["error" => "Ce login existe deja"]);
         http_response_code(409);
         return;
     }
@@ -99,7 +99,7 @@ function addGamer($login, $pwd) {
     $stmt->execute();
 
     $newId = $pdo->lastInsertId();
-    echo json_encode(["message" => "Joueur ajouté", "id" => $newId]);
+    echo json_encode(["message" => "Joueur ajoute", "id" => $newId]);
 }
 
 function loginGamer($login, $pwd) {
@@ -120,7 +120,7 @@ function loginGamer($login, $pwd) {
         $update = $pdo->prepare("UPDATE joueurs SET derniere_connexion = NOW() WHERE id = :id");
         $update->execute([':id' => $row['id']]);
 
-        echo json_encode(["message" => "Connexion réussie", "id" => $row['id']]);
+        echo json_encode(["message" => "Connexion reussie", "id" => $row['id']]);
     } else {
         echo json_encode(["error" => "Mot de passe incorrect"]);
         http_response_code(401);
@@ -141,7 +141,7 @@ function logoutGamer($login, $pwd) {
     }
 
     // Simule la déconnexion
-    echo json_encode(["message" => "Déconnexion OK"]);
+    echo json_encode(["message" => "Deconnexion OK"]);
 }
 
 /* -----------------------------------------------------------------------
@@ -205,7 +205,7 @@ function deleteGamer($login) {
     $del = $pdo->prepare("DELETE FROM joueurs WHERE id = :id");
     $del->execute([':id' => $joueurId]);
 
-    echo json_encode(["message" => "Joueur supprimé", "id" => $joueurId]);
+    echo json_encode(["message" => "Joueur supprime", "id" => $joueurId]);
 }
 
 function deleteDefinition($defId) {
@@ -217,7 +217,7 @@ function deleteDefinition($defId) {
     $row = $check->fetch(PDO::FETCH_ASSOC);
 
     if (!$row) {
-        echo json_encode(["error" => "Définition introuvable"]);
+        echo json_encode(["error" => "Definition introuvable"]);
         http_response_code(404);
         return;
     }
@@ -226,5 +226,5 @@ function deleteDefinition($defId) {
     $del = $pdo->prepare("DELETE FROM definitions WHERE id = :id");
     $del->execute([':id' => $defId]);
 
-    echo json_encode(["message" => "Définition supprimée", "id" => $defId]);
+    echo json_encode(["message" => "Definition supprimee", "id" => $defId]);
 }
