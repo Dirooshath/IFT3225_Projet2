@@ -236,21 +236,18 @@ function deleteDefinition($defId) {
    NOUVELLE SECTION : gestion de /word/<nb>
 ----------------------------------------------------------------------- */
 function handleWord($method, $segments) {
-    // L’URL attendue : GET /word/<nb>
-    // ex: ?path=word/5 => $segments = ["word","5"], $method = "GET"
-
-    if ($method == 'GET' && count($segments) == 2) {
-        // On récupère la valeur de nb
+    // On veut un appel GET /word/<nb>
+    if ($method === 'GET' && count($segments) === 2) {
         $nb = (int)$segments[1];
         if ($nb <= 0) {
-            $nb = 10; // valeur par défaut
+            $nb = 10; // Valeur par défaut si <nb> est invalide
         }
 
         $pdo = dbConnect();
 
-        // Requête pour retourner $nb définitions
-        // Adaptez selon votre schéma de table
-        $sql = "SELECT id, word, def
+        // On récupère <nb> lignes depuis la table "definitions"
+        // (Adaptée à la structure : id, langue, source, mot, definition)
+        $sql = "SELECT id, langue, source, mot, definition
                 FROM definitions
                 ORDER BY id
                 LIMIT :limitN";
@@ -260,28 +257,52 @@ function handleWord($method, $segments) {
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Regrouper par mot (optionnel, comme dans l’exemple)
+        // On veut éventuellement regrouper les définitions par "mot"
+        // Ex. :
+        // [
+        //   {
+        //     "mot": "APPARTEMENTS",
+        //     "langue": "fr",
+        //     "definitions": [
+        //        { "id": 1, "source": "moyenne80.puz", "definition": "Ne se trouvent pas facilement..." },
+        //        { "id": 100, "source": "xyz", ... }
+        //     ]
+        //   },
+        //   ...
+        // ]
+
         $grouped = [];
+
         foreach ($rows as $row) {
-            $w = $row['word'];
-            if (!isset($grouped[$w])) {
-                $grouped[$w] = [
-                    'word' => $w,
-                    'id'   => $row['id'],
-                    'def'  => []
+            $m = $row['mot'];
+
+            // Si ce mot n’est pas encore dans $grouped, on l’initialise
+            if (!isset($grouped[$m])) {
+                $grouped[$m] = [
+                    'mot'    => $m,
+                    'langue' => $row['langue'],
+                    'definitions' => []
                 ];
             }
-            $grouped[$w]['def'][] = $row['def'];
+
+            // On ajoute un objet description dans 'definitions'
+            $grouped[$m]['definitions'][] = [
+                'id'         => $row['id'],
+                'source'     => $row['source'],
+                'definition' => $row['definition']
+            ];
         }
 
-        // Convertir en tableau indexé (optionnel)
+        // Passage en tableau indexé pour un JSON plus standard
         $result = array_values($grouped);
 
-        // Renvoyer en JSON
+        // Sortie JSON
         echo json_encode($result, JSON_PRETTY_PRINT);
+        return;
     }
-    else {
-        echo json_encode(["error" => "Route /word invalide"]);
-        http_response_code(400);
-    }
+
+    // Sinon, route inconnue dans /word
+    echo json_encode(["error" => "Route /word invalide"]);
+    http_response_code(400);
+}
 }
