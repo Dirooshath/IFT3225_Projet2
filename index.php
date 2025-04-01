@@ -236,18 +236,20 @@ function deleteDefinition($defId) {
    NOUVELLE SECTION : gestion de /word/<nb>
 ----------------------------------------------------------------------- */
 function handleWord($method, $segments) {
-    // On veut un appel GET /word/<nb>
+    // On attend : GET /word/<nb>
     if ($method === 'GET' && count($segments) === 2) {
         $nb = (int)$segments[1];
         if ($nb <= 0) {
-            $nb = 10; // Valeur par défaut si <nb> est invalide
+            $nb = 10; // valeur par défaut si <nb> non valide
         }
 
+        // Connexion à la BD
         $pdo = dbConnect();
 
-        // On récupère <nb> lignes depuis la table "definitions"
-        // (Adaptée à la structure : id, langue, source, mot, definition)
-        $sql = "SELECT id, langue, source, mot, definition
+        // On récupère <nb> lignes dans la table "definitions"
+        // Adaptez le nom des champs selon votre schéma :
+        //   id (PK), word (le mot), def (la définition)
+        $sql = "SELECT id, mot, definition
                 FROM definitions
                 ORDER BY id
                 LIMIT :limitN";
@@ -257,52 +259,35 @@ function handleWord($method, $segments) {
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // On veut éventuellement regrouper les définitions par "mot"
-        // Ex. :
-        // [
-        //   {
-        //     "mot": "APPARTEMENTS",
-        //     "langue": "fr",
-        //     "definitions": [
-        //        { "id": 1, "source": "moyenne80.puz", "definition": "Ne se trouvent pas facilement..." },
-        //        { "id": 100, "source": "xyz", ... }
-        //     ]
-        //   },
-        //   ...
-        // ]
+        // 1. Rassembler le résultat final sous forme d'un tableau
+        //    où chaque enregistrement a la forme :
+        //    { "word": "...", "id": "...", "def": ["Définition 1", "Définition 2", ...] }
 
-        $grouped = [];
+        //    Ici, si votre BD ne stocke qu'UNE seule définition par ligne,
+        //    on place la valeur `def` dans un petit tableau, ex: ["..."].
+        //    En cas de multi-définitions, on ferait un groupement par word.
 
+        $result = [];
         foreach ($rows as $row) {
-            $m = $row['mot'];
+            // Placer la définition dans un petit tableau
+            $definitionArray = [$row['definition']];
 
-            // Si ce mot n’est pas encore dans $grouped, on l’initialise
-            if (!isset($grouped[$m])) {
-                $grouped[$m] = [
-                    'mot'    => $m,
-                    'langue' => $row['langue'],
-                    'definitions' => []
-                ];
-            }
-
-            // On ajoute un objet description dans 'definitions'
-            $grouped[$m]['definitions'][] = [
-                'id'         => $row['id'],
-                'source'     => $row['source'],
-                'definition' => $row['definition']
+            // Construire l'objet voulu
+            $item = [
+                "mot" => $row['mot'],
+                "id"   => $row['id'],
+                "definition"  => $definitionArray
             ];
+
+            $result[] = $item;
         }
 
-        // Passage en tableau indexé pour un JSON plus standard
-        $result = array_values($grouped);
-
-        // Sortie JSON
+        // 2. Retourner ce tableau en JSON (niveau racine)
         echo json_encode($result, JSON_PRETTY_PRINT);
         return;
     }
 
-    // Sinon, route inconnue dans /word
+    // Sinon, on ne reconnaît pas la route /word
     echo json_encode(["error" => "Route /word invalide"]);
     http_response_code(400);
-}
 }
