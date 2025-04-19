@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Game SPA</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f7f9fc;
+            padding-top: 60px;
+            padding-bottom: 40px;
+        }
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.6em;
+        }
+        .page-container {
+            display: none;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
+        .active-page {
+            display: block;
+        }
+        .game-card {
+            transition: transform 0.3s;
+            cursor: pointer;
+            height: 100%;
+        }
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        .card-title {
+            font-weight: bold;
+        }
+        .leaderboard-table {
+            margin-top: 20px;
+        }
+        footer {
+            margin-top: 50px;
+            padding: 20px 0;
+            background-color: #343a40;
+            color: white;
+            text-align: center;
+        }
+        #login-container, #registration-container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .auth-toggle {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .word-display {
+            font-size: 1.8em;
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .definition {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .suggestion-box {
+            display: none;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin-top: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .user-stats {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .letter-input-container {
+            width: 45px;
+            margin: 0 5px;
+        }
+
+        .letter-input {
+            font-size: 1.4em;
+            font-weight: bold;
+            text-align: center;
+            text-transform: uppercase;
+            height: 50px;
+            padding: 0;
+            width: 100%;
+        }
+
+        /* Custom flash animation for incorrect letters */
+        @keyframes flashRed {
+            0% { background-color: #f8f9fa; border-color: #ced4da; }
+            50% { background-color: #f8d7da; border-color: #dc3545; }
+            100% { background-color: #f8f9fa; border-color: #ced4da; }
+        }
+
+        .letter-input.is-invalid {
+            animation: flashRed 0.5s;
+            background-image: none !important; /* Remove exclamation mark */
+            box-shadow: none !important;
+        }
+
+        .letter-input.is-valid {
+            background-image: none !important; /* Remove checkmark */
+            border-color: #ced4da !important;
+            background-color: #f8f9fa !important;
+            box-shadow: none !important;
+        }
+        .letter-input.auto-revealed {
+            background-color: #ffe8cc;
+            border-color: #fd7e14;
+            color: #fd7e14;
+        }
+        .letter-inputs {
+            margin: 20px 0;
+        }
+        .letter-input.is-valid, 
+        .letter-input.is-invalid,
+        .letter-input.auto-revealed {
+            padding: 0;
+            font-size: 1.4em;
+            line-height: 1;
+            box-shadow: none;
+        }
+
+        /* Specific styles for states */
+        .letter-input.is-valid {
+            background-color: #d4edda;
+            border-color: #28a745;
+        }
+
+        .letter-input.is-invalid {
+            background-color: #f8d7da;
+            border-color: #dc3545;
+        }
+
+        .letter-input.auto-revealed {
+            background-color: #ffe8cc;
+            border-color: #fd7e14;
+            color: #fd7e14;
+        }
+        #hint-btn {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        .hint-timer {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #f8f9fa;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #6c757d;
+            border: 2px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="#home">Word Game</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#home">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#play-word">Play Word Game</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#create-def">Create Definitions</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#view-defs">View Definitions</a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <span id="user-display" class="text-white me-3" style="display: none;">
+                        Welcome, <span id="username-display"></span>!
+                    </span>
+                    <a id="login-nav-btn" href="#login" class="btn btn-outline-light me-2">Login</a>
+                    <a id="register-nav-btn" href="#register" class="btn btn-light">Register</a>
+                    <button id="logout-btn" class="btn btn-outline-light" style="display: none;">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <div class="container mt-4">
+        <!-- Home Page -->
+        <div id="home-page" class="page-container">
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="alert alert-info" id="welcome-message">
+                        Welcome to the Word Game! Please login or register to start playing.
+                    </div>
+                </div>
+            </div>
+            
+            <h2 class="mb-4">Choose a Game</h2>
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="card game-card" onclick="location.hash='#play-word'">
+                        <div class="card-body">
+                            <h5 class="card-title">Word Guessing Game</h5>
+                            <p class="card-text">Guess the word based on its definition. Race against the clock!</p>
+                            <div class="text-end">
+                                <a href="#play-word" class="btn btn-primary">Play Now</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card game-card" onclick="location.hash='#create-def'">
+                        <div class="card-body">
+                            <h5 class="card-title">Create Definitions</h5>
+                            <p class="card-text">Create new definitions for words and earn points for each valid entry!</p>
+                            <div class="text-end">
+                                <a href="#create-def" class="btn btn-primary">Play Now</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card game-card" onclick="location.hash='#view-defs'">
+                        <div class="card-body">
+                            <h5 class="card-title">View Definitions</h5>
+                            <p class="card-text">Browse through all the word definitions in our database.</p>
+                            <div class="text-end">
+                                <a href="#view-defs" class="btn btn-primary">View Now</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <h2 class="mb-4 mt-5">Leaderboard</h2>
+            <div class="table-responsive">
+                <table class="table table-striped leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Player</th>
+                            <th scope="col">Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                        <tr>
+                            <td colspan="3" class="text-center">Loading leaderboard...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Login Page -->
+        <div id="login-page" class="page-container">
+            <h2 class="text-center mb-4">Login</h2>
+            <div id="login-container">
+                <div id="login-message" class="alert alert-danger" style="display: none;"></div>
+                <form id="login-form">
+                    <div class="mb-3">
+                        <label for="login-username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="login-username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="login-password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="login-password" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Login</button>
+                    </div>
+                </form>
+                <div class="auth-toggle">
+                    <span>Don't have an account?</span>
+                    <a href="#register">Register here</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Registration Page -->
+        <div id="register-page" class="page-container">
+            <h2 class="text-center mb-4">Register</h2>
+            <div id="registration-container">
+                <div id="register-message" class="alert alert-danger" style="display: none;"></div>
+                <form id="register-form">
+                    <div class="mb-3">
+                        <label for="register-username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="register-username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="register-password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="register-password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="register-confirm" class="form-label">Confirm Password</label>
+                        <input type="password" class="form-control" id="register-confirm" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Register</button>
+                    </div>
+                </form>
+                <div class="auth-toggle">
+                    <span>Already have an account?</span>
+                    <a href="#login">Login here</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Word Game Page -->
+        <div id="play-word-page" class="page-container">
+            <h2 class="mb-4">Guess the Word</h2>
+            <div class="user-stats">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h5>Player: <span id="word-game-player">Guest</span></h5>
+                    </div>
+                    <div class="col-md-4">
+                        <h5>Score: <span id="word-game-score">0</span></h5>
+                    </div>
+                    <div class="col-md-4">
+                        <h5>Time Left: <span id="word-game-timer">60</span>s</h5>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="definition" id="word-game-definition">
+                <h4>Definition:</h4>
+                <p id="definition-text">Loading...</p>
+            </div>
+            
+            <div class="word-display" id="word-display">
+                <!-- Letter input boxes will be generated here -->
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                        <button id="guess-word-btn" class="btn btn-success">Guess Entire Word</button>
+                        <button id="hint-btn" class="btn btn-warning" style="display: none;">Get Hints (20 points)</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="suggestion-box" id="suggestion-box">
+                <h4>Possible Words:</h4>
+                <div id="suggestion-list" class="list-group">
+                    <!-- Suggestions will appear here -->
+                </div>
+            </div>
+            
+            <div class="mt-4 text-center">
+                <button id="new-word-game-btn" class="btn btn-outline-primary">New Game</button>
+            </div>
+        </div>
+
+        <!-- Create Definitions Page -->
+        <div id="create-def-page" class="page-container">
+            <h2 class="mb-4">Create Definitions</h2>
+            <div class="user-stats">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h5>Player: <span id="def-game-player">Guest</span></h5>
+                    </div>
+                    <div class="col-md-4">
+                        <h5>Score: <span id="def-game-score">0</span></h5>
+                    </div>
+                    <div class="col-md-4">
+                        <h5>Time Left: <span id="def-game-timer">60</span>s</h5>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert alert-info">
+                Create definitions for the word below. Each valid definition (5-200 characters) earns 5 points.
+            </div>
+            
+            <div class="word-display" id="def-word-display">Loading...</div>
+            
+            <div class="mb-3">
+                <textarea id="definition-input" class="form-control" rows="3" placeholder="Enter your definition (5-200 characters)"></textarea>
+            </div>
+            
+            <div class="mb-3">
+                <button id="submit-def-btn" class="btn btn-primary">Submit Definition</button>
+            </div>
+            
+            <div id="def-message" class="alert" style="display: none;"></div>
+            
+            <h4 class="mt-4">Your Definitions:</h4>
+            <div id="definitions-list" class="list-group">
+                <!-- User definitions will appear here -->
+            </div>
+            
+            <div class="mt-4 text-center">
+                <button id="new-def-game-btn" class="btn btn-outline-primary">New Game</button>
+            </div>
+        </div>
+
+        <!-- View Definitions Page -->
+        <div id="view-defs-page" class="page-container">
+            <h2 class="mb-4">View Definitions</h2>
+            <table id="definitions-table" class="display">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Language</th>
+                        <th>Word</th>
+                        <th>Definition</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Definitions will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>IFT3225 - Technologie Web - Projet 2 - &copy; 2025</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+
+    <!-- Application JavaScript -->
+    <script src="app.js"></script>
+</body>
+</html>

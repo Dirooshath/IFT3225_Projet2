@@ -1,9 +1,9 @@
 <?php
 function dbConnect() {
     $host = 'localhost';  // ou l'adresse du serveur MySQL (DIRO?)
-    $db   = 'projet2_ift3225';    // nom de ta base
-    $user = 'root';       // ton user MySQL
-    $pass = 'root';           // ton mot de passe
+    $db   = 'vranderl_projet2';    // nom de ta base
+    $user = 'vranderl';       // ton user MySQL
+    $pass = 's7M7J5U:7:9bhf';           // ton mot de passe
 
     // DSN (Data Source Name) pour PDO
     $dsn = "mysql:host=$host;dbname=$db;charset=utf8mb4";
