@@ -1,9 +1,11 @@
-// Global variables
 let currentUser = null;
+let isAdminUser = false;
 let wordGameTimer = null;
 let defGameTimer = null;
 let wordGameData = null;
 let defGameData = null;
+let usersTable = null;
+let definitionsAdminTable = null;
 
 // Router configuration
 const routes = {
@@ -12,7 +14,8 @@ const routes = {
     'register': showRegisterPage,
     'play-word': showWordGamePage,
     'create-def': showDefGamePage,
-    'view-defs': showDefsPage
+    'view-defs': showDefsPage,
+    'admin': showAdminDashboard
 };
 
 // Initialize application
@@ -28,6 +31,7 @@ $(document).ready(function() {
     
     // Set up event handlers
     setupEventHandlers();
+    setupAdminEventHandlers();
     
     // Load leaderboard data
     loadLeaderboard();
@@ -38,6 +42,7 @@ function checkUserSession() {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
         currentUser = JSON.parse(storedUser);
+        isAdminUser = currentUser.isAdmin || false;
         updateUIForLoggedInUser();
     }
 }
@@ -144,6 +149,21 @@ function showDefsPage() {
     }
 }
 
+// Admin Dashboard Function
+function showAdminDashboard() {
+    // Show admin dashboard page
+    $('#admin-dashboard-page').addClass('active-page');
+    
+    // Redirect non-admin users
+    if (!currentUser || !currentUser.isAdmin) {
+        window.location.hash = 'home';
+        return;
+    }
+    
+    // Load admin data
+    loadAdminData();
+}
+
 // Authentication Functions
 function handleLogin() {
     const username = $('#login-username').val();
@@ -161,8 +181,12 @@ function handleLogin() {
         success: function(response) {
             currentUser = {
                 username: username,
-                score: response.score || 0
+                score: response.score || 0,
+                isAdmin: response.is_admin || false
             };
+            
+            // Store admin status
+            isAdminUser = response.is_admin || false;
             
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
             updateUIForLoggedInUser();
@@ -227,6 +251,7 @@ function handleLogout() {
         method: 'GET',
         success: function(response) {
             currentUser = null;
+            isAdminUser = false;
             localStorage.removeItem('currentUser');
             updateUIForLoggedOutUser();
             
@@ -241,6 +266,7 @@ function handleLogout() {
             console.error('Logout error:', xhr);
             // Even if the logout fails on the server, still log out locally
             currentUser = null;
+            isAdminUser = false;
             localStorage.removeItem('currentUser');
             updateUIForLoggedOutUser();
             window.location.hash = 'home';
@@ -257,6 +283,22 @@ function updateUIForLoggedInUser() {
     
     // Update game player names
     $('#word-game-player, #def-game-player').text(currentUser.username);
+    
+    // Add admin menu item if user is admin
+    if (currentUser.isAdmin) {
+        // Check if admin nav item already exists
+        if ($('#admin-nav-item').length === 0) {
+            $('#navbarNav .navbar-nav').append(`
+                <li class="nav-item" id="admin-nav-item">
+                    <a class="nav-link" href="#admin">Admin Dashboard</a>
+                </li>
+            `);
+        } else {
+            $('#admin-nav-item').show();
+        }
+    } else {
+        $('#admin-nav-item').hide();
+    }
 }
 
 function updateUIForLoggedOutUser() {
@@ -267,6 +309,9 @@ function updateUIForLoggedOutUser() {
     
     // Update game player names
     $('#word-game-player, #def-game-player').text('Guest');
+    
+    // Hide admin nav item
+    $('#admin-nav-item').hide();
 }
 
 function showLoginMessage(message, type) {
@@ -293,8 +338,7 @@ function showRegisterMessage(message, type) {
     }, 5000);
 }
 
-// Update these functions in app.js
-
+// Word Game functions
 function clearWordGame() {
     if (wordGameTimer) {
         clearInterval(wordGameTimer);
@@ -336,7 +380,6 @@ function initWordGame() {
     wordGameTimer = setInterval(updateWordGameTimer, 1000);
 }
 
-// Also ensure the startNewWordGame function properly clears the game before starting a new one
 function startNewWordGame() {
     // Clear any existing game (this will clear timers and hint containers)
     clearWordGame();
@@ -345,53 +388,88 @@ function startNewWordGame() {
     $.ajax({
         url: 'api.php?path=jeu/word/en/60/10',
         method: 'GET',
+        dataType: 'json',
         success: function(response) {
+            // If there's an error in the response
+            if (response.error) {
+                console.error('API Error:', response.error);
+                alert('Error getting word game: ' + response.error);
+                useMockData();
+                return;
+            }
+            
+            const word = response.word;
+            
+            // If we didn't get good suggestions from the server, generate our own
+            let suggestions = response.suggestions || [];
+            if (!suggestions.length || suggestions.length < 10) {
+                suggestions = generateSmartSuggestions(word);
+            }
+            
             wordGameData = {
-                word: response.word,
+                word: word,
                 definition: response.definition,
-                revealedLetters: new Array(response.word.length).fill(false),
-                score: response.initialScore || response.word.length * 10,
+                revealedLetters: new Array(word.length).fill(false),
+                score: response.initialScore || word.length * 10,
                 timeLeft: response.time || 60,
                 hintInterval: response.hintInterval || 10,
-                hintTimer: response.hintInterval || 10, // Countdown to next hint
+                hintTimer: response.hintInterval || 10,
                 hintShown: false,
                 hintButtonShown: false,
-                suggestions: response.suggestions || []
+                suggestions: suggestions
             };
             
             initWordGame();
         },
-        error: function(xhr) {
-            console.error('Error starting word game:', xhr);
+        error: function(xhr, status, error) {
+            console.error('Error starting word game:', xhr.responseText);
             
-            // Fallback to mock data if API fails
-            const mockWords = [
-                { word: "ALGORITHM", definition: "A process or set of rules to be followed in calculations or problem-solving operations." },
-                { word: "JAVASCRIPT", definition: "A high-level, interpreted programming language often used for web development." },
-                { word: "DATABASE", definition: "An organized collection of data stored electronically in a computer system." },
-                { word: "INTERFACE", definition: "A point where two systems meet and interact." },
-                { word: "VARIABLE", definition: "A symbol that represents a value that may change in a program." }
-            ];
+            let errorMessage = 'Failed to connect to the game server.';
             
-            // Choose a random word
-            const randomWord = mockWords[Math.floor(Math.random() * mockWords.length)];
+            try {
+                const responseJson = JSON.parse(xhr.responseText);
+                if (responseJson.error) {
+                    errorMessage = responseJson.error;
+                }
+            } catch (e) {
+                console.error('Response is not JSON:', xhr.responseText);
+                console.error('Parse error:', e);
+            }
             
-            wordGameData = {
-                word: randomWord.word,
-                definition: randomWord.definition,
-                revealedLetters: new Array(randomWord.word.length).fill(false),
-                score: randomWord.word.length * 10,
-                timeLeft: 60,
-                hintInterval: 10,
-                hintTimer: 10,
-                hintShown: false,
-                hintButtonShown: false,
-                suggestions: []
-            };
-            
-            initWordGame();
+            // Always use mock data when there's an error
+            console.log('Using mock data for word game due to error');
+            useMockData();
         }
     });
+}
+
+function useMockData() {
+    // Fallback to mock data if API fails
+    const mockWords = [
+        { word: "ALGORITHM", definition: "A process or set of rules to be followed in calculations or problem-solving operations." },
+        { word: "JAVASCRIPT", definition: "A high-level, interpreted programming language often used for web development." },
+        { word: "DATABASE", definition: "An organized collection of data stored electronically in a computer system." },
+        { word: "INTERFACE", definition: "A point where two systems meet and interact." },
+        { word: "VARIABLE", definition: "A symbol that represents a value that may change in a program." }
+    ];
+    
+    // Choose a random word
+    const randomWord = mockWords[Math.floor(Math.random() * mockWords.length)];
+    
+    wordGameData = {
+        word: randomWord.word,
+        definition: randomWord.definition,
+        revealedLetters: new Array(randomWord.word.length).fill(false),
+        score: randomWord.word.length * 10,
+        timeLeft: 60,
+        hintInterval: 10,
+        hintTimer: 10,
+        hintShown: false,
+        hintButtonShown: false,
+        suggestions: []
+    };
+    
+    initWordGame();
 }
 
 // New function to generate letter input boxes
@@ -589,7 +667,6 @@ function checkGameCompletion() {
     }
 }
 
-// Function to update player's score in the database
 function updatePlayerScore(score) {
     if (!currentUser) return;
     
@@ -600,6 +677,14 @@ function updatePlayerScore(score) {
             action: 'update_score',
             username: currentUser.username,
             score: score
+        },
+        success: function(response) {
+            console.log('Score updated successfully:', response);
+            // Refresh leaderboard after score update
+            loadLeaderboard();
+        },
+        error: function(xhr) {
+            console.error('Error updating score:', xhr);
         }
     });
 }
@@ -665,24 +750,72 @@ function handleHintRequest() {
     generateSuggestions();
 }
 
-// Function to generate word suggestions based on revealed letters
 function generateSuggestions() {
+    if (!wordGameData) return;
+    
     // Create a pattern with the revealed letters
     let pattern = '';
     for (let i = 0; i < wordGameData.word.length; i++) {
-        pattern += wordGameData.revealedLetters[i] ? wordGameData.word[i] : '.';
+        pattern += wordGameData.revealedLetters[i] ? wordGameData.word[i].toUpperCase() : '.';
     }
     
-    let suggestionHtml = '';
+    console.log('Current pattern:', pattern);
     
-    // If we have suggestions from the API, use those
+    let suggestionHtml = '';
+    let matchingSuggestions = [];
+    
+    // If we have suggestions from the API, filter them based on the current pattern
     if (wordGameData.suggestions && wordGameData.suggestions.length > 0) {
-        wordGameData.suggestions.forEach(word => {
+        // Create a regex pattern to match words with revealed letters in correct positions
+        const regexPattern = new RegExp('^' + pattern + '$', 'i');
+        
+        // Filter suggestions that match the pattern
+        matchingSuggestions = wordGameData.suggestions.filter(word => {
+            return regexPattern.test(word);
+        });
+        
+        console.log('Filtered suggestions that match pattern:', matchingSuggestions);
+        
+        // If no matching suggestions were found, provide a fallback mechanism
+        if (matchingSuggestions.length === 0) {
+            // Fallback 1: Find words that match at least the positions that have been revealed
+            matchingSuggestions = wordGameData.suggestions.filter(word => {
+                word = word.toUpperCase();
+                for (let i = 0; i < wordGameData.word.length; i++) {
+                    if (wordGameData.revealedLetters[i] && word[i] !== wordGameData.word[i].toUpperCase()) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            
+            console.log('Fallback 1 - Match revealed positions:', matchingSuggestions);
+            
+            // Fallback 2: If still no matches, include all suggestions as a last resort
+            if (matchingSuggestions.length === 0) {
+                matchingSuggestions = wordGameData.suggestions;
+                console.log('Fallback 2 - Using all suggestions:', matchingSuggestions);
+            }
+        }
+        
+        // Always include the correct word (hidden among other suggestions)
+        if (!matchingSuggestions.some(word => word.toUpperCase() === wordGameData.word.toUpperCase())) {
+            matchingSuggestions.push(wordGameData.word);
+            
+            // Shuffle the array to ensure the correct word isn't always at the end
+            matchingSuggestions = shuffleArray(matchingSuggestions);
+        }
+        
+        // Generate HTML for matching suggestions
+        matchingSuggestions.forEach(word => {
             suggestionHtml += `<a href="#" class="list-group-item list-group-item-action suggestion-item" data-word="${word}">${word}</a>`;
         });
     } else {
-        // Fallback to just showing the actual word
-        suggestionHtml = `<a href="#" class="list-group-item list-group-item-action suggestion-item" data-word="${wordGameData.word}">${wordGameData.word}</a>`;
+        // If we don't have any suggestions at all, just show a few random words including the correct one
+        const mockSuggestions = generateMockSuggestions(wordGameData.word, 5);
+        mockSuggestions.forEach(word => {
+            suggestionHtml += `<a href="#" class="list-group-item list-group-item-action suggestion-item" data-word="${word}">${word}</a>`;
+        });
     }
     
     $('#suggestion-list').html(suggestionHtml);
@@ -706,6 +839,46 @@ function generateSuggestions() {
         // Check game completion
         checkGameCompletion();
     });
+}
+
+// Helper function to shuffle an array (Fisher-Yates shuffle)
+function shuffleArray(array) {
+    const newArray = [...array]; // Create a copy to avoid modifying the original
+    for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
+}
+
+// Helper function to generate mock suggestions when API doesn't provide any
+function generateMockSuggestions(word, count) {
+    const wordLength = word.length;
+    const suggestions = [word];
+    
+    // Create a few random variations of the word
+    for (let i = 0; i < count; i++) {
+        let variation = '';
+        for (let j = 0; j < wordLength; j++) {
+            // 50% chance to keep the same letter, otherwise random letter
+            if (Math.random() > 0.5) {
+                variation += word[j];
+            } else {
+                const randomChar = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+                variation += randomChar;
+            }
+        }
+        suggestions.push(variation);
+    }
+    
+    return shuffleArray(suggestions);
+}
+
+// Define generateSmartSuggestions function (placeholder)
+function generateSmartSuggestions(word) {
+    // This would ideally use some smart algorithm to generate plausible words
+    // For now, just return some mock suggestions
+    return generateMockSuggestions(word, 10);
 }
 
 // Definition Game Functions
@@ -844,6 +1017,12 @@ function handleSubmitDefinition() {
             // Update score
             updateDefGameScore(5);
             
+            // Update currentUser score in memory
+            if (currentUser) {
+                currentUser.score += 5;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            }
+            
             // Add to UI
             $('#definitions-list').append(`
                 <div class="list-group-item">
@@ -856,7 +1035,11 @@ function handleSubmitDefinition() {
             
             // Show success message
             showDefMessage('Definition added successfully! (+5 points)', 'success');
-        },
+            
+            // Refresh leaderboard data in the background
+            loadLeaderboard();
+        }
+        ,
         error: function(xhr) {
             // Handle error (duplicate definition, server error, etc.)
             console.error('Error submitting definition:', xhr);
@@ -900,158 +1083,548 @@ function showDefMessage(message, type) {
     }, 5000);
 }
 
-// Definitions Table Functions
-function initDefinitionsTable() {
-    // Add loading indicator
-    $('#view-defs-page').append('<div id="loading-indicator" class="text-center my-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Loading definitions...</p></div>');
-    
-    // Load definitions from the API
-    $.ajax({
-        url: 'api.php?path=dump/50', // Fetch 50 definitions
-        method: 'GET',
-        success: function(response) {
-            $('#loading-indicator').remove();
-            initTableWithData(response);
-        },
-        error: function(xhr) {
-            $('#loading-indicator').remove();
-            console.error('Error loading definitions:', xhr);
-            
-            // For demo, use mock data if API fails
-            const mockDefinitions = [
-                { id: 1, language: 'en', word: 'ALGORITHM', definition: 'A process or set of rules to be followed in calculations or problem-solving operations.' },
-                { id: 2, language: 'en', word: 'JAVASCRIPT', definition: 'A high-level, interpreted programming language often used for web development.' },
-                { id: 3, language: 'en', word: 'DATABASE', definition: 'An organized collection of data stored electronically in a computer system.' },
-                { id: 4, language: 'en', word: 'INTERFACE', definition: 'A point where two systems meet and interact.' },
-                { id: 5, language: 'en', word: 'VARIABLE', definition: 'A symbol that represents a value that may change in a program.' },
-                { id: 6, language: 'fr', word: 'ORDINATEUR', definition: 'Machine électronique programmable qui traite les données.' },
-                { id: 7, language: 'fr', word: 'PROGRAMMATION', definition: 'Action d\'établir un programme d\'opérations.' },
-                { id: 8, language: 'fr', word: 'LOGICIEL', definition: 'Ensemble des programmes, procédés et règles relatifs au fonctionnement d\'un ensemble de traitement de données.' },
-                { id: 9, language: 'fr', word: 'INTERNET', definition: 'Réseau informatique mondial accessible au public.' },
-                { id: 10, language: 'fr', word: 'SERVEUR', definition: 'Système informatique destiné à fournir des services à des utilisateurs connectés.' },
-                // Add more mock data to simulate larger dataset
-                { id: 11, language: 'en', word: 'FUNCTION', definition: 'A relation that associates each element of a set with exactly one element of another set.' },
-                { id: 12, language: 'en', word: 'ARRAY', definition: 'An ordered collection of values identified by index.' },
-                { id: 13, language: 'en', word: 'OBJECT', definition: 'A collection of properties, and a property is an association between a name and a value.' },
-                { id: 14, language: 'en', word: 'CLASS', definition: 'A template for creating objects, providing initial values and implementation of behavior.' },
-                { id: 15, language: 'en', word: 'INHERITANCE', definition: 'The mechanism by which an object can acquire properties and methods of another object.' },
-                { id: 16, language: 'fr', word: 'NAVIGATEUR', definition: 'Logiciel permettant d\'afficher les pages web et de naviguer sur internet.' },
-                { id: 17, language: 'fr', word: 'SERVEUR', definition: 'Ordinateur ou logiciel qui rend service à un ou plusieurs clients.' },
-                { id: 18, language: 'fr', word: 'RÉSEAU', definition: 'Ensemble d\'ordinateurs et de périphériques reliés entre eux.' },
-                { id: 19, language: 'fr', word: 'TÉLÉCHARGEMENT', definition: 'Opération de transmission d\'informations d\'un ordinateur à un autre.' },
-                { id: 20, language: 'fr', word: 'COURRIEL', definition: 'Message transmis par un réseau télématique d\'un utilisateur à un ou plusieurs destinataires.' }
-            ];
-            
-            initTableWithData(mockDefinitions);
-        }
-    });
-}
+// Replace the initDefinitionsTable function with this simplified version
+// Replace your current initDefinitionsTable function with this enhanced version
 
-function initTableWithData(data) {
-    // Add language filter UI
-    $('#view-defs-page').prepend(`
+function initDefinitionsTable() {
+    // Clear any existing DataTable
+    if ($.fn.DataTable.isDataTable('#definitions-table')) {
+        $('#definitions-table').DataTable().destroy();
+    }
+    
+    // Add custom search and filter UI above the table
+    $('#view-defs-page h2').after(`
         <div class="mb-4">
-            <label class="me-2">Filter by language:</label>
-            <div class="btn-group" role="group">
-                <button type="button" class="btn btn-outline-primary active" data-filter="all">All</button>
-                <button type="button" class="btn btn-outline-primary" data-filter="en">English</button>
-                <button type="button" class="btn btn-outline-primary" data-filter="fr">French</button>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" id="definition-search" class="form-control" 
+                               placeholder="Search words or definitions...">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="btn-group float-md-end" id="language-filter" role="group">
+                        <button type="button" class="btn btn-outline-primary active" data-filter="">All Languages</button>
+                        <button type="button" class="btn btn-outline-primary" data-filter="en">English</button>
+                        <button type="button" class="btn btn-outline-primary" data-filter="fr">French</button>
+                    </div>
+                </div>
             </div>
         </div>
     `);
     
-    // Initialize DataTable with enhanced options
-    const definitionsTable = $('#definitions-table').DataTable({
-        data: data,
+    // Variables to track current search state
+    let currentSearchTerm = '';
+    let currentLanguage = '';
+    let currentSortColumn = 0;  // Default sort column (ID)
+    let currentSortDir = 'asc'; // Default sort direction
+    let searchTimeout = null;
+    
+    // Initialize the DataTable with server-side processing
+    let definitionsTable = $('#definitions-table').DataTable({
+        processing: true,
+        serverSide: true,
+        searching: false, // Disable built-in search as we use our own
+        lengthChange: false, // Hide page length options
+        pageLength: 50, // Show 50 entries per page
+        ordering: true, // Enable ordering/sorting
+        order: [[currentSortColumn, currentSortDir]], // Initial sort
+        ajax: {
+            url: 'api.php',
+            data: function(data) {
+                // Add our custom parameters to the DataTables request
+                data.path = 'dump/50/0';
+                data.term = currentSearchTerm;
+                data.lang = currentLanguage;
+                
+                // Add sorting information
+                data.sortColumn = data.order[0].column;
+                data.sortDir = data.order[0].dir;
+                
+                // Save current sort state
+                currentSortColumn = data.order[0].column;
+                currentSortDir = data.order[0].dir;
+                
+                return data;
+            }
+        },
         columns: [
             { data: 'id' },
             { data: 'language' },
-            { data: 'word' },
+            { data: 'word', render: function(data) {
+                return '<strong>' + data + '</strong>';
+            }},
             { data: 'definition' }
-        ],
-        pageLength: 25,                      // Show 25 entries by default
-        lengthMenu: [10, 25, 50, 100, -1],   // Options including "All"
-        language: {
-            lengthMenu: "Show _MENU_ definitions per page",
-            info: "Showing _START_ to _END_ of _TOTAL_ definitions",
-            search: "Search definitions:",
-            paginate: {
-                first: "First",
-                last: "Last",
-                next: "Next",
-                previous: "Previous"
-            },
-            zeroRecords: "No matching definitions found",
-            infoEmpty: "No definitions available",
-            infoFiltered: "(filtered from _MAX_ total definitions)"
-        },
-        responsive: true,
-        dom: '<"top"lf>rt<"bottom"ip><"clear">'
+        ]
     });
     
-    // Add language filter functionality
-    $('.btn-group button').on('click', function() {
-        const filter = $(this).data('filter');
+    // Add search event handler with debounce
+    $('#definition-search').on('input', function() {
+        const searchTerm = $(this).val().trim();
         
-        // Update active button
-        $('.btn-group button').removeClass('active');
+        // Clear previous timeout
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+        
+        // Set a timeout to avoid too many requests
+        searchTimeout = setTimeout(function() {
+            currentSearchTerm = searchTerm;
+            definitionsTable.ajax.reload();
+        }, 300); // 300ms delay
+    });
+    
+    // Add language filter handler
+    $('#language-filter button').on('click', function() {
+        $('#language-filter button').removeClass('active');
         $(this).addClass('active');
         
-        // Apply filter
-        if (filter === 'all') {
-            definitionsTable.column(1).search('').draw();
-        } else {
-            definitionsTable.column(1).search(filter).draw();
-        }
+        currentLanguage = $(this).data('filter');
+        definitionsTable.ajax.reload();
     });
-    
-    // Add load more button if needed
-    if (data.length === 50) {  // If we got exactly 50 definitions, assume there might be more
-        $('#view-defs-page').append(`
-            <div class="text-center mt-4">
-                <button id="load-more-defs" class="btn btn-outline-primary">Load More Definitions</button>
-            </div>
-        `);
-        
-        // Handle load more click
-        $('#load-more-defs').on('click', function() {
-            const offset = data.length;
+}
+
+// Admin Dashboard Functions
+function loadAdminData() {
+    loadUsersTable();
+    loadDefinitionsAdminTable();
+    loadGameStats();
+}
+
+// Function to load users table
+function loadUsersTable() {
+    $.ajax({
+        url: 'api.php?path=admin/users',
+        method: 'GET',
+        success: function(users) {
+            // Destroy existing DataTable if it exists
+            if (usersTable) {
+                usersTable.destroy();
+            }
             
-            $(this).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...');
-            $(this).prop('disabled', true);
+            // Clear table body
+            $('#users-table tbody').empty();
             
-            // Fetch more definitions with an offset
-            $.ajax({
-                url: `api.php?path=dump/50/${offset}`,
-                method: 'GET',
-                success: function(moreData) {
-                    // Add new data to the table
-                    if (moreData && moreData.length > 0) {
-                        moreData.forEach(function(item) {
-                            definitionsTable.row.add(item).draw(false);
-                        });
-                        
-                        // Update the button
-                        $('#load-more-defs').html('Load More Definitions');
-                        $('#load-more-defs').prop('disabled', false);
-                        
-                        // If fewer than 50 definitions were returned, assume we've reached the end
-                        if (moreData.length < 50) {
-                            $('#load-more-defs').remove();
-                        }
-                    } else {
-                        // No more data
-                        $('#load-more-defs').remove();
-                    }
-                },
-                error: function(xhr) {
-                    console.error('Error loading more definitions:', xhr);
-                    $('#load-more-defs').html('Load More Definitions');
-                    $('#load-more-defs').prop('disabled', false);
+            // Add rows to table
+            $.each(users, function(i, user) {
+                const lastLogin = new Date(user.derniere_connexion).toLocaleString();
+                
+                $('#users-table tbody').append(`
+                    <tr>
+                        <td>${user.id}</td>
+                        <td>${user.login}</td>
+                        <td>${user.parties_jouees}</td>
+                        <td>${user.parties_gagnees}</td>
+                        <td>${user.score}</td>
+                        <td>${lastLogin}</td>
+                        <td>${user.is_admin == 1 ? '<span class="badge bg-primary">Yes</span>' : 'No'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary edit-user-btn" data-id="${user.id}">Edit</button>
+                            <button class="btn btn-sm btn-danger delete-user-btn" data-id="${user.id}" data-username="${user.login}">Delete</button>
+                        </td>
+                    </tr>
+                `);
+            });
+            
+            // Initialize DataTable
+            usersTable = $('#users-table').DataTable({
+                pageLength: 10,
+                order: [[4, 'desc']], // Sort by score by default
+                language: {
+                    search: "Search users:"
                 }
             });
+            
+            // Add event listeners for edit and delete buttons
+            $('#users-table').on('click', '.edit-user-btn', function() {
+                const userId = $(this).data('id');
+                const row = $(this).closest('tr');
+                
+                // Fill modal with user data
+                $('#edit-user-id').val(userId);
+                $('#edit-username').val(row.find('td:eq(1)').text());
+                $('#edit-games-played').val(row.find('td:eq(2)').text());
+                $('#edit-games-won').val(row.find('td:eq(3)').text());
+                $('#edit-score').val(row.find('td:eq(4)').text());
+                $('#edit-is-admin').prop('checked', row.find('td:eq(6)').text().includes('Yes'));
+                
+                // Show modal
+                $('#editUserModal').modal('show');
+            });
+            
+            $('#users-table').on('click', '.delete-user-btn', function() {
+                const userId = $(this).data('id');
+                const username = $(this).data('username');
+                
+                // Set delete modal data
+                $('#delete-username').text(username);
+                
+                // Set data attribute on confirm button
+                $('#confirm-delete-user-btn').data('id', userId);
+                
+                // Show modal
+                $('#deleteUserModal').modal('show');
+            });
+        },
+        error: function(xhr) {
+            console.error('Error loading users:', xhr);
+            $('#users-table tbody').html(`
+                <tr>
+                    <td colspan="8" class="text-center text-danger">
+                        Failed to load users. Please try again.
+                    </td>
+                </tr>
+            `);
+        }
+    });
+}
+
+// Function to load definitions admin table
+function loadDefinitionsAdminTable() {
+    // Enhanced version with source column and actions
+    $.ajax({
+        url: 'api.php?path=dump/50',
+        method: 'GET',
+        success: function(response) {
+            // Destroy existing DataTable if it exists
+            if (definitionsAdminTable) {
+                definitionsAdminTable.destroy();
+            }
+            
+            // Clear table body
+            $('#definitions-admin-table tbody').empty();
+            
+            // Add rows to table
+            $.each(response.data, function(i, def) {
+                $('#definitions-admin-table tbody').append(`
+                    <tr>
+                        <td>${def.id}</td>
+                        <td>${def.language}</td>
+                        <td>${def.word}</td>
+                        <td>${def.definition}</td>
+                        <td>${def.source || 'system'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary edit-def-btn" data-id="${def.id}">Edit</button>
+                            <button class="btn btn-sm btn-danger delete-def-btn" data-id="${def.id}" data-word="${def.word}">Delete</button>
+                        </td>
+                    </tr>
+                `);
+            });
+            
+            // Initialize DataTable
+            definitionsAdminTable = $('#definitions-admin-table').DataTable({
+                pageLength: 10,
+                order: [[0, 'desc']], // Sort by ID by default
+                language: {
+                    search: "Search definitions:"
+                }
+            });
+            
+            // Add event listeners for edit and delete buttons
+            $('#definitions-admin-table').on('click', '.edit-def-btn', function() {
+                const defId = $(this).data('id');
+                const row = $(this).closest('tr');
+                
+                // Fill modal with definition data
+                $('#edit-definition-id').val(defId);
+                $('#edit-word').val(row.find('td:eq(2)').text());
+                $('#edit-definition-text').val(row.find('td:eq(3)').text());
+                $('#edit-language').val(row.find('td:eq(1)').text());
+                $('#edit-source').val(row.find('td:eq(4)').text());
+                
+                // Show modal
+                $('#editDefinitionModal').modal('show');
+            });
+            
+            $('#definitions-admin-table').on('click', '.delete-def-btn', function() {
+                const defId = $(this).data('id');
+                const word = $(this).data('word');
+                
+                // Set delete modal data
+                $('#delete-word').text(word);
+                
+                // Set data attribute on confirm button
+                $('#confirm-delete-definition-btn').data('id', defId);
+                
+                // Show modal
+                $('#deleteDefinitionModal').modal('show');
+            });
+        },
+        error: function(xhr) {
+            console.error('Error loading definitions:', xhr);
+            $('#definitions-admin-table tbody').html(`
+                <tr>
+                    <td colspan="6" class="text-center text-danger">
+                        Failed to load definitions. Please try again.
+                    </td>
+                </tr>
+            `);
+        }
+    });
+}
+
+// Function to load game statistics
+function loadGameStats() {
+    $.ajax({
+        url: 'api.php?path=admin/stats',
+        method: 'GET',
+        success: function(stats) {
+            // Update stats
+            $('#total-players').text(stats.totalPlayers);
+            $('#total-games').text(stats.totalGames);
+            $('#total-definitions').text(stats.totalDefinitions);
+            $('#user-definitions').text(stats.userDefinitions);
+            
+            // Update active users list
+            $('#active-users-list').empty();
+            $.each(stats.activeUsers, function(i, user) {
+                const lastActive = new Date(user.derniere_connexion).toLocaleString();
+                $('#active-users-list').append(`
+                    <tr>
+                        <td>${user.login}</td>
+                        <td>${user.parties_jouees}</td>
+                        <td>${lastActive}</td>
+                    </tr>
+                `);
+            });
+            
+            // Update popular words list
+            $('#popular-words-list').empty();
+            $.each(stats.popularWords, function(i, word) {
+                $('#popular-words-list').append(`
+                    <tr>
+                        <td>${word.word}</td>
+                        <td>${word.language}</td>
+                        <td>${word.count}</td>
+                    </tr>
+                `);
+            });
+            
+            // Update admin leaderboard
+            $('#admin-leaderboard').empty();
+            $.ajax({
+                url: 'api.php?path=admin/top/10',
+                method: 'GET',
+                success: function(topUsers) {
+                    $.each(topUsers, function(i, user) {
+                        $('#admin-leaderboard').append(`
+                            <tr>
+                                <td>${i + 1}</td>
+                                <td>${user.login}</td>
+                                <td>${user.score}</td>
+                            </tr>
+                        `);
+                    });
+                }
+            });
+        },
+        error: function(xhr) {
+            console.error('Error loading game stats:', xhr);
+            $('.tab-pane#stats-tab-pane .card-body').each(function() {
+                $(this).html(`
+                    <div class="alert alert-danger">
+                        Failed to load statistics. Please try again.
+                    </div>
+                `);
+            });
+        }
+    });
+}
+
+// Set up admin event handlers
+function setupAdminEventHandlers() {
+    // Users tab
+    $('#refresh-users-btn').on('click', loadUsersTable);
+    
+    // Save user changes
+    $('#save-user-btn').on('click', function() {
+        const userId = $('#edit-user-id').val();
+        const gamesPlayed = $('#edit-games-played').val();
+        const gamesWon = $('#edit-games-won').val();
+        const score = $('#edit-score').val();
+        const isAdmin = $('#edit-is-admin').is(':checked') ? 1 : 0;
+        
+        $.ajax({
+            url: 'api.php?path=admin/users/' + userId,
+            method: 'POST',
+            data: {
+                parties_jouees: gamesPlayed,
+                parties_gagnees: gamesWon,
+                score: score,
+                is_admin: isAdmin
+            },
+            success: function(response) {
+                $('#editUserModal').modal('hide');
+                loadUsersTable(); // Reload table
+                
+                // Show success alert
+                showAdminAlert('User updated successfully!', 'success');
+            },
+            error: function(xhr) {
+                console.error('Error updating user:', xhr);
+                showAdminAlert('Failed to update user. Please try again.', 'danger');
+            }
         });
-    }
+    });
+    
+    // Confirm delete user
+    $('#confirm-delete-user-btn').on('click', function() {
+        const username = $('#delete-username').text();
+        
+        $.ajax({
+            url: 'api.php?path=admin/delete/joueur/' + username,
+            method: 'GET',
+            success: function(response) {
+                $('#deleteUserModal').modal('hide');
+                loadUsersTable(); // Reload table
+                
+                // Show success alert
+                showAdminAlert('User deleted successfully!', 'success');
+            },
+            error: function(xhr) {
+                console.error('Error deleting user:', xhr);
+                showAdminAlert('Failed to delete user. Please try again.', 'danger');
+            }
+        });
+    });
+    
+    // Definitions tab
+    $('#refresh-definitions-btn').on('click', loadDefinitionsAdminTable);
+    
+    // Add definition button
+    $('#add-definition-btn').on('click', function() {
+        // Clear form
+        $('#add-definition-form')[0].reset();
+        $('#add-source').val('admin'); // Default source
+        
+        // Show modal
+        $('#addDefinitionModal').modal('show');
+    });
+    
+    // Create definition
+    $('#create-definition-btn').on('click', function() {
+        const word = $('#add-word').val();
+        const definition = $('#add-definition-text').val();
+        const language = $('#add-language').val();
+        const source = $('#add-source').val();
+        
+        if (!word || !definition) {
+            showAdminAlert('Please fill in all required fields.', 'warning');
+            return;
+        }
+        
+        $.ajax({
+            url: 'api.php',
+            method: 'POST',
+            data: {
+                action: 'add_definition',
+                word: word,
+                definition: definition,
+                language: language,
+                user: source || 'admin'
+            },
+            success: function(response) {
+                $('#addDefinitionModal').modal('hide');
+                loadDefinitionsAdminTable(); // Reload table
+                
+                // Show success alert
+                showAdminAlert('Definition added successfully!', 'success');
+            },
+            error: function(xhr) {
+                console.error('Error adding definition:', xhr);
+                showAdminAlert('Failed to add definition. Please try again.', 'danger');
+            }
+        });
+    });
+    
+    // Save definition changes
+    $('#save-definition-btn').on('click', function() {
+        const defId = $('#edit-definition-id').val();
+        const word = $('#edit-word').val();
+        const definition = $('#edit-definition-text').val();
+        const language = $('#edit-language').val();
+        const source = $('#edit-source').val();
+        
+        $.ajax({
+            url: 'api.php?path=admin/definitions/' + defId,
+            method: 'POST',
+            data: {
+                word: word,
+                definition: definition,
+                language: language,
+                source: source
+            },
+            success: function(response) {
+                $('#editDefinitionModal').modal('hide');
+                loadDefinitionsAdminTable(); // Reload table
+                
+                // Show success alert
+                showAdminAlert('Definition updated successfully!', 'success');
+            },
+            error: function(xhr) {
+                console.error('Error updating definition:', xhr);
+                showAdminAlert('Failed to update definition. Please try again.', 'danger');
+            }
+        });
+    });
+    
+    // Confirm delete definition
+    $('#confirm-delete-definition-btn').on('click', function() {
+        const defId = $(this).data('id');
+        
+        $.ajax({
+            url: 'api.php?path=admin/delete/def/' + defId,
+            method: 'GET',
+            success: function(response) {
+                $('#deleteDefinitionModal').modal('hide');
+                loadDefinitionsAdminTable(); // Reload table
+                
+                // Show success alert
+                showAdminAlert('Definition deleted successfully!', 'success');
+            },
+            error: function(xhr) {
+                console.error('Error deleting definition:', xhr);
+                showAdminAlert('Failed to delete definition. Please try again.', 'danger');
+            }
+        });
+    });
+    
+    // Admin tabs switched
+    $('#adminTabs button').on('click', function(e) {
+        const targetTab = $(this).attr('id');
+        
+        // Refresh data when switching to tab
+        if (targetTab === 'users-tab') {
+            loadUsersTable();
+        } else if (targetTab === 'definitions-tab') {
+            loadDefinitionsAdminTable();
+        } else if (targetTab === 'stats-tab') {
+            loadGameStats();
+        }
+    });
+}
+
+// Utility function to show admin alerts
+function showAdminAlert(message, type) {
+    // Remove any existing alerts
+    $('.admin-alert').remove();
+    
+    // Create alert
+    const alert = $(`
+        <div class="admin-alert alert alert-${type} alert-dismissible fade show">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    `);
+    
+    // Add to page
+    $('#admin-dashboard-page').prepend(alert);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(function() {
+        alert.alert('close');
+    }, 5000);
 }
 
 // Leaderboard Functions
@@ -1083,6 +1656,15 @@ function loadLeaderboard() {
 function displayLeaderboard(data) {
     const tbody = $('#leaderboard-body');
     tbody.empty();
+    
+    if (!data || data.length === 0) {
+        tbody.append(`
+            <tr>
+                <td colspan="3" class="text-center">No players found yet. Start playing to get on the leaderboard!</td>
+            </tr>
+        `);
+        return;
+    }
     
     data.forEach((player, index) => {
         tbody.append(`
