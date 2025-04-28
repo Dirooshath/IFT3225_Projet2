@@ -201,7 +201,7 @@
     </style>
 </head>
 <body>
-    <!-- Navigation Bar -->
+    
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
         <div class="container">
             <a class="navbar-brand" href="#home">Word Game</a>
@@ -222,7 +222,7 @@
                     <li class="nav-item">
                         <a class="nav-link" href="#view-defs">View Definitions</a>
                     </li>
-                    <!-- Admin nav item will be added dynamically for admin users -->
+                    
                 </ul>
                 <div class="d-flex align-items-center">
                     <span id="user-display" class="text-white me-3" style="display: none;">
@@ -236,9 +236,9 @@
         </div>
     </nav>
 
-    <!-- Main Content Container -->
+    
     <div class="container mt-4">
-        <!-- Home Page -->
+        
         <div id="home-page" class="page-container">
             <div class="row mb-4">
                 <div class="col-12">
@@ -304,7 +304,7 @@
             </div>
         </div>
 
-        <!-- Login Page -->
+        
         <div id="login-page" class="page-container">
             <h2 class="text-center mb-4">Login</h2>
             <div id="login-container">
@@ -329,7 +329,7 @@
             </div>
         </div>
 
-        <!-- Registration Page -->
+        
         <div id="register-page" class="page-container">
             <h2 class="text-center mb-4">Register</h2>
             <div id="registration-container">
@@ -358,7 +358,7 @@
             </div>
         </div>
 
-        <!-- Word Game Page -->
+        
         <div id="play-word-page" class="page-container">
             <h2 class="mb-4">Guess the Word</h2>
             <div class="user-stats">
@@ -381,7 +381,7 @@
             </div>
             
             <div class="word-display" id="word-display">
-                <!-- Letter input boxes will be generated here -->
+                
             </div>
             
             <div class="row mb-3">
@@ -396,7 +396,7 @@
             <div class="suggestion-box" id="suggestion-box">
                 <h4>Possible Words:</h4>
                 <div id="suggestion-list" class="list-group">
-                    <!-- Suggestions will appear here -->
+                    
                 </div>
             </div>
             
@@ -405,7 +405,7 @@
             </div>
         </div>
 
-        <!-- Create Definitions Page -->
+        
         <div id="create-def-page" class="page-container">
             <h2 class="mb-4">Create Definitions</h2>
             <div class="user-stats">
@@ -440,7 +440,7 @@
             
             <h4 class="mt-4">Your Definitions:</h4>
             <div id="definitions-list" class="list-group">
-                <!-- User definitions will appear here -->
+                
             </div>
             
             <div class="mt-4 text-center">
@@ -451,7 +451,7 @@
         <div id="view-defs-page" class="page-container">
             <h2 class="mb-4">View Definitions</h2>
             
-            <!-- Search and filters will be inserted here by JavaScript -->
+            
             
             <div class="card">
                 <div class="card-body">
@@ -475,11 +475,11 @@
                 </div>
             </div>
             
-            <!-- Pagination will be added here if needed -->
+            
             <div id="pagination-container" class="mt-3"></div>
         </div>
 
-        <!-- Admin Dashboard Page -->
+        
         <div id="admin-dashboard-page" class="page-container">
             <h2 class="mb-4">Admin Dashboard</h2>
             
@@ -502,7 +502,7 @@
             </ul>
             
             <div class="tab-content" id="adminTabsContent">
-                <!-- Users Management Tab -->
+                
                 <div class="tab-pane fade show active" id="users-tab-pane" role="tabpanel" tabindex="0">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
@@ -536,7 +536,7 @@
                         </div>
                     </div>
                     
-                    <!-- Edit User Modal -->
+                    
                     <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
                         <div class="modal-dialog">
                             <div class="modal-content">
@@ -577,7 +577,7 @@
                         </div>
                     </div>
                     
-                    <!-- Confirm Delete User Modal -->
+                    
                     <div class="modal fade" id="deleteUserModal" tabindex="-1" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
                         <div class="modal-dialog">
                             <div class="modal-content">
@@ -598,7 +598,7 @@
                     </div>
                 </div>
                 
-                <!-- Definitions Management Tab -->
+                
                 <div class="tab-pane fade" id="definitions-tab-pane" role="tabpanel" tabindex="0">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
@@ -613,7 +613,7 @@
                             </div>
                         </div>
                         <div class="card-body">
-                            <!-- Search and Filters -->
+                            
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     <div class="input-group">
@@ -653,7 +653,7 @@
                         </div>
                     </div>
                     
-                    <!-- Edit Definition Modal -->
+                    
                     <div class="modal fade" id="editDefinitionModal" tabindex="-1" aria-labelledby="editDefinitionModalLabel" aria-hidden="true">
                         <div class="modal-dialog">
                             <div class="modal-content">
@@ -693,7 +693,7 @@
                         </div>
                     </div>
                     
-                    <!-- Add Definition Modal -->
+                    
                     <div class="modal fade" id="addDefinitionModal" tabindex="-1" aria-labelledby="addDefinitionModalLabel" aria-hidden="true">
                         <div class="modal-dialog">
                             <div class="modal-content">
@@ -732,7 +732,7 @@
                         </div>
                     </div>
                     
-                    <!-- Confirm Delete Definition Modal -->
+                    
                     <div class="modal fade" id="deleteDefinitionModal" tabindex="-1" aria-labelledby="deleteDefinitionModalLabel" aria-hidden="true">
                         <div class="modal-dialog">
                             <div class="modal-content">
@@ -753,7 +753,7 @@
                     </div>
                 </div>
                 
-                <!-- Game Statistics Tab -->
+                
                 <div class="tab-pane fade" id="stats-tab-pane" role="tabpanel" tabindex="0">
                     <div class="row">
                         <div class="col-md-6 mb-4">
@@ -877,19 +877,19 @@
         </div>
     </div>
 
-    <!-- Footer -->
+    
     <footer>
         <div class="container">
             <p>IFT3225 - Technologie Web - Projet 2 - &copy; 2025</p>
         </div>
     </footer>
 
-    <!-- JavaScript Libraries -->
+    
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
 
-    <!-- Application JavaScript -->
+    
     <script src="app.js"></script>
 </body>
 </html>

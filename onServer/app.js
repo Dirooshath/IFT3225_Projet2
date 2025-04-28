@@ -7,7 +7,7 @@ let defGameData = null;
 let usersTable = null;
 let definitionsAdminTable = null;
 
-// Router configuration
+
 const routes = {
     'home': showHomePage,
     'login': showLoginPage,
@@ -18,26 +18,26 @@ const routes = {
     'admin': showAdminDashboard
 };
 
-// Initialize application
+
 $(document).ready(function() {
-    // Set up hash-based routing
+    
     window.addEventListener('hashchange', handleRouteChange);
     
-    // Check for existing session
+    
     checkUserSession();
     
-    // Initial route handling
+    
     handleRouteChange();
     
-    // Set up event handlers
+    
     setupEventHandlers();
     setupAdminEventHandlers();
     
-    // Load leaderboard data
+    
     loadLeaderboard();
 });
 
-// Check if user is already logged in (simulated here)
+
 function checkUserSession() {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
@@ -47,54 +47,54 @@ function checkUserSession() {
     }
 }
 
-// Handle route changes
+
 function handleRouteChange() {
     const hash = window.location.hash.substring(1) || 'home';
     const routeHandler = routes[hash];
     
-    // Hide all pages
+    
     $('.page-container').removeClass('active-page');
     
     if (routeHandler) {
         routeHandler();
     } else {
-        // Default to home page if route not found
+        
         showHomePage();
     }
 }
 
-// Set up all event handlers
+
 function setupEventHandlers() {
-    // Login form submission
+    
     $('#login-form').on('submit', function(e) {
         e.preventDefault();
         handleLogin();
     });
     
-    // Registration form submission
+    
     $('#register-form').on('submit', function(e) {
         e.preventDefault();
         handleRegistration();
     });
     
-    // Logout button
+    
     $('#logout-btn').on('click', handleLogout);
     
-    // Word game buttons
+    
     $('#guess-word-btn').on('click', handleGuessWord);
     $('#hint-btn').on('click', handleHintRequest);
     $('#new-word-game-btn').on('click', startNewWordGame);
     
-    // Definition game buttons
+    
     $('#submit-def-btn').on('click', handleSubmitDefinition);
     $('#new-def-game-btn').on('click', startNewDefGame);
 }
 
-// Page display functions
+
 function showHomePage() {
     $('#home-page').addClass('active-page');
     
-    // Update welcome message based on login status
+    
     if (currentUser) {
         $('#welcome-message').html(`Welcome back, <strong>${currentUser.username}</strong>! Choose a game to play.`);
     } else {
@@ -113,13 +113,13 @@ function showRegisterPage() {
 function showWordGamePage() {
     $('#play-word-page').addClass('active-page');
     
-    // If user is not logged in, redirect to login
+    
     if (!currentUser) {
         window.location.hash = 'login';
         return;
     }
     
-    // Start a new word game if there's no active game
+    
     if (!wordGameData) {
         startNewWordGame();
     }
@@ -128,13 +128,13 @@ function showWordGamePage() {
 function showDefGamePage() {
     $('#create-def-page').addClass('active-page');
     
-    // If user is not logged in, redirect to login
+    
     if (!currentUser) {
         window.location.hash = 'login';
         return;
     }
     
-    // Start a new definition game if there's no active game
+    
     if (!defGameData) {
         startNewDefGame();
     }
@@ -143,28 +143,28 @@ function showDefGamePage() {
 function showDefsPage() {
     $('#view-defs-page').addClass('active-page');
     
-    // Initialize DataTable if not already done
+    
     if (!$.fn.DataTable.isDataTable('#definitions-table')) {
         initDefinitionsTable();
     }
 }
 
-// Admin Dashboard Function
+
 function showAdminDashboard() {
-    // Show admin dashboard page
+    
     $('#admin-dashboard-page').addClass('active-page');
     
-    // Redirect non-admin users
+    
     if (!currentUser || !currentUser.isAdmin) {
         window.location.hash = 'home';
         return;
     }
     
-    // Load admin data
+    
     loadAdminData();
 }
 
-// Authentication Functions
+
 function handleLogin() {
     const username = $('#login-username').val();
     const password = $('#login-password').val();
@@ -174,7 +174,7 @@ function handleLogin() {
         return;
     }
     
-    // Actual API call to login
+    
     $.ajax({
         url: 'api.php?path=gamers/login/' + encodeURIComponent(username) + '/' + encodeURIComponent(password),
         method: 'GET',
@@ -185,13 +185,13 @@ function handleLogin() {
                 isAdmin: response.is_admin || false
             };
             
-            // Store admin status
+            
             isAdminUser = response.is_admin || false;
             
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
             updateUIForLoggedInUser();
             
-            // Redirect to home page
+            
             window.location.hash = 'home';
         },
         error: function(xhr) {
@@ -219,17 +219,17 @@ function handleRegistration() {
         return;
     }
     
-    // Actual API call to register
+    
     $.ajax({
         url: 'api.php?path=gamers/add/' + encodeURIComponent(username) + '/' + encodeURIComponent(password),
         method: 'GET',
         success: function(response) {
             showRegisterMessage('Registration successful! You can now login.', 'success');
             
-            // Clear the form
+            
             $('#register-form')[0].reset();
             
-            // Redirect to login page after a short delay
+            
             setTimeout(function() {
                 window.location.hash = 'login';
             }, 1500);
@@ -245,7 +245,7 @@ function handleRegistration() {
 }
 
 function handleLogout() {
-    // Actual API call to logout
+    
     $.ajax({
         url: 'api.php?path=gamers/logout/' + encodeURIComponent(currentUser.username) + '/password',
         method: 'GET',
@@ -255,16 +255,16 @@ function handleLogout() {
             localStorage.removeItem('currentUser');
             updateUIForLoggedOutUser();
             
-            // Redirect to home page
+            
             window.location.hash = 'home';
             
-            // Clear any active games
+            
             clearWordGame();
             clearDefGame();
         },
         error: function(xhr) {
             console.error('Logout error:', xhr);
-            // Even if the logout fails on the server, still log out locally
+            
             currentUser = null;
             isAdminUser = false;
             localStorage.removeItem('currentUser');
@@ -275,18 +275,18 @@ function handleLogout() {
 }
 
 function updateUIForLoggedInUser() {
-    // Update navigation
+    
     $('#user-display').show();
     $('#username-display').text(currentUser.username);
     $('#login-nav-btn, #register-nav-btn').hide();
     $('#logout-btn').show();
     
-    // Update game player names
+    
     $('#word-game-player, #def-game-player').text(currentUser.username);
     
-    // Add admin menu item if user is admin
+    
     if (currentUser.isAdmin) {
-        // Check if admin nav item already exists
+        
         if ($('#admin-nav-item').length === 0) {
             $('#navbarNav .navbar-nav').append(`
                 <li class="nav-item" id="admin-nav-item">
@@ -302,15 +302,15 @@ function updateUIForLoggedInUser() {
 }
 
 function updateUIForLoggedOutUser() {
-    // Update navigation
+    
     $('#user-display').hide();
     $('#login-nav-btn, #register-nav-btn').show();
     $('#logout-btn').hide();
     
-    // Update game player names
+    
     $('#word-game-player, #def-game-player').text('Guest');
     
-    // Hide admin nav item
+    
     $('#admin-nav-item').hide();
 }
 
@@ -320,7 +320,7 @@ function showLoginMessage(message, type) {
     messageDiv.removeClass('alert-danger alert-success').addClass('alert-' + type);
     messageDiv.show();
     
-    // Hide the message after a few seconds
+    
     setTimeout(function() {
         messageDiv.hide();
     }, 5000);
@@ -332,13 +332,13 @@ function showRegisterMessage(message, type) {
     messageDiv.removeClass('alert-danger alert-success').addClass('alert-' + type);
     messageDiv.show();
     
-    // Hide the message after a few seconds
+    
     setTimeout(function() {
         messageDiv.hide();
     }, 5000);
 }
 
-// Word Game functions
+
 function clearWordGame() {
     if (wordGameTimer) {
         clearInterval(wordGameTimer);
@@ -346,28 +346,28 @@ function clearWordGame() {
     }
     wordGameData = null;
     
-    // Remove hint timer container and auto-hint notifications
+    
     $('#hint-timer-container').remove();
     $('#auto-hint-notification').remove();
 }
 
 function initWordGame() {
-    // Display word game data
+    
     $('#word-game-score').text(wordGameData.score);
     $('#word-game-timer').text(wordGameData.timeLeft);
     $('#definition-text').text(wordGameData.definition);
     
-    // Generate letter input boxes instead of placeholders
+    
     generateLetterInputs();
     
-    // Reset UI elements
-    $('#hint-btn').hide(); // Hide hint button until first auto-hint
+    
+    $('#hint-btn').hide(); 
     $('#suggestion-box').hide();
     
-    // Remove any existing hint timer containers first
+    
     $('#hint-timer-container').remove();
     
-    // Add hint timer display to the definition box
+    
     $('.definition').append(
         `<div id="hint-timer-container" class="position-relative mt-2">
            <div class="alert alert-info py-2">
@@ -376,21 +376,21 @@ function initWordGame() {
          </div>`
     );
     
-    // Start the timer
+    
     wordGameTimer = setInterval(updateWordGameTimer, 1000);
 }
 
 function startNewWordGame() {
-    // Clear any existing game (this will clear timers and hint containers)
+    
     clearWordGame();
     
-    // Load a word game from the API
+    
     $.ajax({
         url: 'api.php?path=jeu/word/en/60/10',
         method: 'GET',
         dataType: 'json',
         success: function(response) {
-            // If there's an error in the response
+            
             if (response.error) {
                 console.error('API Error:', response.error);
                 alert('Error getting word game: ' + response.error);
@@ -400,7 +400,7 @@ function startNewWordGame() {
             
             const word = response.word;
             
-            // If we didn't get good suggestions from the server, generate our own
+            
             let suggestions = response.suggestions || [];
             if (!suggestions.length || suggestions.length < 10) {
                 suggestions = generateSmartSuggestions(word);
@@ -436,7 +436,7 @@ function startNewWordGame() {
                 console.error('Parse error:', e);
             }
             
-            // Always use mock data when there's an error
+            
             console.log('Using mock data for word game due to error');
             useMockData();
         }
@@ -444,7 +444,7 @@ function startNewWordGame() {
 }
 
 function useMockData() {
-    // Fallback to mock data if API fails
+    
     const mockWords = [
         { word: "ALGORITHM", definition: "A process or set of rules to be followed in calculations or problem-solving operations." },
         { word: "JAVASCRIPT", definition: "A high-level, interpreted programming language often used for web development." },
@@ -453,7 +453,7 @@ function useMockData() {
         { word: "VARIABLE", definition: "A symbol that represents a value that may change in a program." }
     ];
     
-    // Choose a random word
+    
     const randomWord = mockWords[Math.floor(Math.random() * mockWords.length)];
     
     wordGameData = {
@@ -472,13 +472,13 @@ function useMockData() {
     initWordGame();
 }
 
-// New function to generate letter input boxes
+
 function generateLetterInputs() {
     const wordLength = wordGameData.word.length;
     let inputsHTML = '<div class="d-flex justify-content-center letter-inputs">';
     
     for (let i = 0; i < wordLength; i++) {
-        // Create an input for each letter
+        
         inputsHTML += `
             <div class="letter-input-container mx-1">
                 <input type="text" 
@@ -493,7 +493,7 @@ function generateLetterInputs() {
     inputsHTML += '</div>';
     $('#word-display').html(inputsHTML);
     
-    // Add event listeners to the letter inputs
+    
     $('.letter-input').on('input', function() {
         const index = $(this).data('index');
         const letter = $(this).val().trim().toUpperCase();
@@ -501,7 +501,7 @@ function generateLetterInputs() {
         if (letter) {
             checkLetterAtPosition(letter, index);
             
-            // Move focus to next input if available
+            
             if (index < wordLength - 1) {
                 $('.letter-input').eq(index + 1).focus();
             }
@@ -517,24 +517,24 @@ function checkLetterAtPosition(letter, index) {
     const input = $(`.letter-input[data-index="${index}"]`);
     
     if (letter === correctLetter) {
-        // Correct letter - simply keep the letter and disable without green styling
-        input.removeClass('is-invalid is-valid'); // Remove any validation classes
+        
+        input.removeClass('is-invalid is-valid'); 
         input.prop('disabled', true);
         wordGameData.revealedLetters[index] = true;
         updateWordGameScore(5);
         
-        // Add a subtle background color without using Bootstrap validation
+        
         input.css('background-color', '#f8f9fa');
         input.css('border-color', '#ced4da');
         
-        // Check if all letters are revealed
+        
         checkGameCompletion();
     } else {
-        // Wrong letter - flash red briefly
+        
         input.addClass('is-invalid');
         updateWordGameScore(-5);
         
-        // Clear the input and remove the red styling after a short delay
+        
         setTimeout(() => {
             input.val('');
             input.removeClass('is-invalid');
@@ -547,54 +547,54 @@ function checkLetterAtPosition(letter, index) {
 function updateWordGameTimer() {
     if (!wordGameData) return;
     
-    // Update game time
+    
     wordGameData.timeLeft--;
     $('#word-game-timer').text(wordGameData.timeLeft);
     
-    // Update hint timer
+    
     wordGameData.hintTimer--;
     
-    // Update hint timer display if it exists
+    
     if ($('#hint-timer-display').length > 0) {
         $('#hint-timer-display').text(wordGameData.hintTimer);
     }
     
-    // Auto-reveal a letter when hint timer reaches zero
+    
     if (wordGameData.hintTimer === 0) {
-        // Reset the hint timer
+        
         wordGameData.hintTimer = wordGameData.hintInterval;
         
-        // Reveal a random letter and deduct points
+        
         revealRandomLetter();
         updateWordGameScore(-10);
         
-        // After the first auto-hint, show the hint button if not already shown
+        
         if (!wordGameData.hintButtonShown) {
             $('#hint-btn').show();
             wordGameData.hintButtonShown = true;
         }
     }
     
-    // End game when time runs out
+    
     if (wordGameData.timeLeft <= 0) {
         clearInterval(wordGameTimer);
         wordGameTimer = null;
         
-        // Reveal the word
+        
         revealWord();
         
-        // Show game over message
+        
         setTimeout(function() {
             alert("Time's up! The word was: " + wordGameData.word);
         }, 300);
     }
 }
 
-// Updated function to reveal a letter with auto-reveal styling
+
 function revealRandomLetter() {
     if (!wordGameData) return;
     
-    // Find indices of hidden letters
+    
     const hiddenIndices = [];
     for (let i = 0; i < wordGameData.word.length; i++) {
         if (!wordGameData.revealedLetters[i]) {
@@ -602,35 +602,35 @@ function revealRandomLetter() {
         }
     }
     
-    // Reveal a random hidden letter
+    
     if (hiddenIndices.length > 0) {
         const randomIndex = hiddenIndices[Math.floor(Math.random() * hiddenIndices.length)];
         wordGameData.revealedLetters[randomIndex] = true;
         
-        // Update the input field with special styling for auto-revealed letters
+        
         const input = $(`.letter-input[data-index="${randomIndex}"]`);
         input.val(wordGameData.word[randomIndex]);
         input.prop('disabled', true);
         input.removeClass('is-valid is-invalid').addClass('auto-revealed');
         
-        // Display auto-hint notification
+        
         showAutoHintNotification();
         
-        // Check if all letters are revealed
+        
         checkGameCompletion();
     }
 }
 
-// Function to show a notification when an auto-hint occurs
+
 function showAutoHintNotification() {
-    // Create notification if it doesn't exist
+    
     if ($('#auto-hint-notification').length === 0) {
         $('<div id="auto-hint-notification" class="alert alert-warning position-fixed" style="top: 70px; right: 20px; z-index: 1050; display: none;">' +
           '<strong>Auto-Hint!</strong> A letter was revealed. -10 points.' +
           '</div>').appendTo('body');
     }
     
-    // Show notification
+    
     $('#auto-hint-notification').fadeIn().delay(2000).fadeOut();
 }
 
@@ -641,26 +641,26 @@ function updateWordGameScore(points) {
     $('#word-game-score').text(wordGameData.score);
 }
 
-// Function to check if all letters are revealed (game is complete)
+
 function checkGameCompletion() {
     if (!wordGameData) return;
     
-    // Check if all letters are revealed
+    
     if (wordGameData.revealedLetters.every(revealed => revealed)) {
-        // Player has won
+        
         clearInterval(wordGameTimer);
         wordGameTimer = null;
         
-        // Calculate bonus based on time left
+        
         const timeBonus = Math.floor(wordGameData.timeLeft / 10);
         updateWordGameScore(timeBonus);
         
-        // Update player score in database if logged in
+        
         if (currentUser) {
             updatePlayerScore(wordGameData.score);
         }
         
-        // Show win message
+        
         setTimeout(function() {
             alert(`Congratulations! You've revealed the entire word and earned ${timeBonus} bonus points for the time left!`);
         }, 300);
@@ -680,7 +680,7 @@ function updatePlayerScore(score) {
         },
         success: function(response) {
             console.log('Score updated successfully:', response);
-            // Refresh leaderboard after score update
+            
             loadLeaderboard();
         },
         error: function(xhr) {
@@ -689,7 +689,7 @@ function updatePlayerScore(score) {
     });
 }
 
-// Function to reveal the entire word when game is over
+
 function revealWord() {
     if (!wordGameData) return;
     
@@ -709,28 +709,28 @@ function handleGuessWord() {
     if (!guess) return;
     
     if (guess.trim().toUpperCase() === wordGameData.word.toUpperCase()) {
-        // Reveal all letters
+        
         revealWord();
         
-        // Calculate bonus based on time left
-        const timeBonus = Math.floor(wordGameData.timeLeft / 10);
-        updateWordGameScore(timeBonus * 2); // Double bonus for guessing the whole word
         
-        // End the game
+        const timeBonus = Math.floor(wordGameData.timeLeft / 10);
+        updateWordGameScore(timeBonus * 2); 
+        
+        
         clearInterval(wordGameTimer);
         wordGameTimer = null;
         
-        // Update player score in database if logged in
+        
         if (currentUser) {
             updatePlayerScore(wordGameData.score);
         }
         
-        // Show win message
+        
         setTimeout(function() {
             alert(`Correct! You win with ${wordGameData.score} points and a time bonus of ${timeBonus * 2}!`);
         }, 300);
     } else {
-        // Wrong guess
+        
         updateWordGameScore(-5);
         alert("Sorry, that's not the correct word.");
     }
@@ -739,21 +739,21 @@ function handleGuessWord() {
 function handleHintRequest() {
     if (!wordGameData) return;
     
-    // Apply cost for hint (20 points)
+    
     updateWordGameScore(-20);
     
-    // Show suggestion box and hide hint button
+    
     $('#hint-btn').hide();
     $('#suggestion-box').show();
     
-    // Generate suggestions based on revealed letters
+    
     generateSuggestions();
 }
 
 function generateSuggestions() {
     if (!wordGameData) return;
     
-    // Create a pattern with the revealed letters
+    
     let pattern = '';
     for (let i = 0; i < wordGameData.word.length; i++) {
         pattern += wordGameData.revealedLetters[i] ? wordGameData.word[i].toUpperCase() : '.';
@@ -764,21 +764,21 @@ function generateSuggestions() {
     let suggestionHtml = '';
     let matchingSuggestions = [];
     
-    // If we have suggestions from the API, filter them based on the current pattern
+    
     if (wordGameData.suggestions && wordGameData.suggestions.length > 0) {
-        // Create a regex pattern to match words with revealed letters in correct positions
+        
         const regexPattern = new RegExp('^' + pattern + '$', 'i');
         
-        // Filter suggestions that match the pattern
+        
         matchingSuggestions = wordGameData.suggestions.filter(word => {
             return regexPattern.test(word);
         });
         
         console.log('Filtered suggestions that match pattern:', matchingSuggestions);
         
-        // If no matching suggestions were found, provide a fallback mechanism
+        
         if (matchingSuggestions.length === 0) {
-            // Fallback 1: Find words that match at least the positions that have been revealed
+            
             matchingSuggestions = wordGameData.suggestions.filter(word => {
                 word = word.toUpperCase();
                 for (let i = 0; i < wordGameData.word.length; i++) {
@@ -791,27 +791,27 @@ function generateSuggestions() {
             
             console.log('Fallback 1 - Match revealed positions:', matchingSuggestions);
             
-            // Fallback 2: If still no matches, include all suggestions as a last resort
+            
             if (matchingSuggestions.length === 0) {
                 matchingSuggestions = wordGameData.suggestions;
                 console.log('Fallback 2 - Using all suggestions:', matchingSuggestions);
             }
         }
         
-        // Always include the correct word (hidden among other suggestions)
+        
         if (!matchingSuggestions.some(word => word.toUpperCase() === wordGameData.word.toUpperCase())) {
             matchingSuggestions.push(wordGameData.word);
             
-            // Shuffle the array to ensure the correct word isn't always at the end
+            
             matchingSuggestions = shuffleArray(matchingSuggestions);
         }
         
-        // Generate HTML for matching suggestions
+        
         matchingSuggestions.forEach(word => {
             suggestionHtml += `<a href="#" class="list-group-item list-group-item-action suggestion-item" data-word="${word}">${word}</a>`;
         });
     } else {
-        // If we don't have any suggestions at all, just show a few random words including the correct one
+        
         const mockSuggestions = generateMockSuggestions(wordGameData.word, 5);
         mockSuggestions.forEach(word => {
             suggestionHtml += `<a href="#" class="list-group-item list-group-item-action suggestion-item" data-word="${word}">${word}</a>`;
@@ -820,12 +820,12 @@ function generateSuggestions() {
     
     $('#suggestion-list').html(suggestionHtml);
     
-    // Add click handler for suggestion
+    
     $('.suggestion-item').on('click', function(e) {
         e.preventDefault();
         const word = $(this).data('word');
         
-        // Fill in the word
+        
         for (let i = 0; i < word.length; i++) {
             const input = $(`.letter-input[data-index="${i}"]`);
             input.val(word[i]);
@@ -836,14 +836,14 @@ function generateSuggestions() {
             }
         }
         
-        // Check game completion
+        
         checkGameCompletion();
     });
 }
 
-// Helper function to shuffle an array (Fisher-Yates shuffle)
+
 function shuffleArray(array) {
-    const newArray = [...array]; // Create a copy to avoid modifying the original
+    const newArray = [...array]; 
     for (let i = newArray.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
@@ -851,16 +851,16 @@ function shuffleArray(array) {
     return newArray;
 }
 
-// Helper function to generate mock suggestions when API doesn't provide any
+
 function generateMockSuggestions(word, count) {
     const wordLength = word.length;
     const suggestions = [word];
     
-    // Create a few random variations of the word
+    
     for (let i = 0; i < count; i++) {
         let variation = '';
         for (let j = 0; j < wordLength; j++) {
-            // 50% chance to keep the same letter, otherwise random letter
+            
             if (Math.random() > 0.5) {
                 variation += word[j];
             } else {
@@ -874,19 +874,19 @@ function generateMockSuggestions(word, count) {
     return shuffleArray(suggestions);
 }
 
-// Define generateSmartSuggestions function (placeholder)
+
 function generateSmartSuggestions(word) {
-    // This would ideally use some smart algorithm to generate plausible words
-    // For now, just return some mock suggestions
+    
+    
     return generateMockSuggestions(word, 10);
 }
 
-// Definition Game Functions
+
 function startNewDefGame() {
-    // Clear any existing game
+    
     clearDefGame();
     
-    // Load a definition game from the API
+    
     $.ajax({
         url: 'api.php?path=jeu/def/en/60',
         method: 'GET',
@@ -904,7 +904,7 @@ function startNewDefGame() {
         error: function(xhr) {
             console.error('Error starting definition game:', xhr);
             
-            // Fallback to mock data if API fails
+            
             const mockWords = ["ALGORITHM", "JAVASCRIPT", "DATABASE", "INTERFACE", "VARIABLE"];
             const randomWord = mockWords[Math.floor(Math.random() * mockWords.length)];
             
@@ -930,17 +930,17 @@ function clearDefGame() {
 }
 
 function initDefGame() {
-    // Display definition game data
+    
     $('#def-game-score').text(defGameData.score);
     $('#def-game-timer').text(defGameData.timeLeft);
     $('#def-word-display').text(defGameData.word);
     
-    // Reset UI elements
+    
     $('#definition-input').val('');
     $('#def-message').hide();
     $('#definitions-list').empty();
     
-    // Start the timer
+    
     defGameTimer = setInterval(updateDefGameTimer, 1000);
 }
 
@@ -950,21 +950,21 @@ function updateDefGameTimer() {
     defGameData.timeLeft--;
     $('#def-game-timer').text(defGameData.timeLeft);
     
-    // End game when time runs out
+    
     if (defGameData.timeLeft <= 0) {
         clearInterval(defGameTimer);
         defGameTimer = null;
         
-        // Disable input
+        
         $('#definition-input').prop('disabled', true);
         $('#submit-def-btn').prop('disabled', true);
         
-        // Update player score in database if logged in
+        
         if (currentUser && defGameData.score > 0) {
             updatePlayerScore(defGameData.score);
         }
         
-        // Show game over message
+        
         showDefMessage(`Time's up! You created ${defGameData.definitions.length} definition(s) and earned ${defGameData.score} points.`, 'info');
     }
 }
@@ -982,7 +982,7 @@ function handleSubmitDefinition() {
     
     const definition = $('#definition-input').val().trim();
     
-    // Validate definition
+    
     if (definition.length < 5) {
         showDefMessage('Definition must be at least 5 characters long.', 'danger');
         return;
@@ -998,7 +998,7 @@ function handleSubmitDefinition() {
         return;
     }
     
-    // Submit the definition to the server
+    
     $.ajax({
         url: 'api.php',
         method: 'POST',
@@ -1011,60 +1011,60 @@ function handleSubmitDefinition() {
             user: currentUser ? currentUser.username : 'Guest'
         },
         success: function(response) {
-            // Add definition to the list
+            
             defGameData.definitions.push(definition);
             
-            // Update score
+            
             updateDefGameScore(5);
             
-            // Update currentUser score in memory
+            
             if (currentUser) {
                 currentUser.score += 5;
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
             }
             
-            // Add to UI
+            
             $('#definitions-list').append(`
                 <div class="list-group-item">
                     ${definition}
                 </div>
             `);
             
-            // Clear input
+            
             $('#definition-input').val('');
             
-            // Show success message
+            
             showDefMessage('Definition added successfully! (+5 points)', 'success');
             
-            // Refresh leaderboard data in the background
+            
             loadLeaderboard();
         }
         ,
         error: function(xhr) {
-            // Handle error (duplicate definition, server error, etc.)
+            
             console.error('Error submitting definition:', xhr);
             
             if (xhr.responseJSON && xhr.responseJSON.error) {
                 showDefMessage(xhr.responseJSON.error, 'danger');
             } else {
-                // For demo purposes, if API fails, still add the definition locally
-                // Add definition to the list
+                
+                
                 defGameData.definitions.push(definition);
                 
-                // Update score
+                
                 updateDefGameScore(5);
                 
-                // Add to UI
+                
                 $('#definitions-list').append(`
                     <div class="list-group-item">
                         ${definition}
                     </div>
                 `);
                 
-                // Clear input
+                
                 $('#definition-input').val('');
                 
-                // Show success message
+                
                 showDefMessage('Definition added successfully! (+5 points)', 'success');
             }
         }
@@ -1077,22 +1077,22 @@ function showDefMessage(message, type) {
     messageDiv.removeClass('alert-danger alert-success alert-info').addClass('alert-' + type);
     messageDiv.show();
     
-    // Hide the message after a few seconds
+    
     setTimeout(function() {
         messageDiv.hide();
     }, 5000);
 }
 
-// Replace the initDefinitionsTable function with this simplified version
-// Replace your current initDefinitionsTable function with this enhanced version
+
+
 
 function initDefinitionsTable() {
-    // Clear any existing DataTable
+    
     if ($.fn.DataTable.isDataTable('#definitions-table')) {
         $('#definitions-table').DataTable().destroy();
     }
     
-    // Add custom search and filter UI above the table
+    
     $('#view-defs-page h2').after(`
         <div class="mb-4">
             <div class="row">
@@ -1114,35 +1114,35 @@ function initDefinitionsTable() {
         </div>
     `);
     
-    // Variables to track current search state
+    
     let currentSearchTerm = '';
     let currentLanguage = '';
-    let currentSortColumn = 0;  // Default sort column (ID)
-    let currentSortDir = 'asc'; // Default sort direction
+    let currentSortColumn = 0;  
+    let currentSortDir = 'asc'; 
     let searchTimeout = null;
     
-    // Initialize the DataTable with server-side processing
+    
     let definitionsTable = $('#definitions-table').DataTable({
         processing: true,
         serverSide: true,
-        searching: false, // Disable built-in search as we use our own
-        lengthChange: false, // Hide page length options
-        pageLength: 50, // Show 50 entries per page
-        ordering: true, // Enable ordering/sorting
-        order: [[currentSortColumn, currentSortDir]], // Initial sort
+        searching: false, 
+        lengthChange: false, 
+        pageLength: 50, 
+        ordering: true, 
+        order: [[currentSortColumn, currentSortDir]], 
         ajax: {
             url: 'api.php',
             data: function(data) {
-                // Add our custom parameters to the DataTables request
+                
                 data.path = 'dump/50/0';
                 data.term = currentSearchTerm;
                 data.lang = currentLanguage;
                 
-                // Add sorting information
+                
                 data.sortColumn = data.order[0].column;
                 data.sortDir = data.order[0].dir;
                 
-                // Save current sort state
+                
                 currentSortColumn = data.order[0].column;
                 currentSortDir = data.order[0].dir;
                 
@@ -1159,23 +1159,23 @@ function initDefinitionsTable() {
         ]
     });
     
-    // Add search event handler with debounce
+    
     $('#definition-search').on('input', function() {
         const searchTerm = $(this).val().trim();
         
-        // Clear previous timeout
+        
         if (searchTimeout) {
             clearTimeout(searchTimeout);
         }
         
-        // Set a timeout to avoid too many requests
+        
         searchTimeout = setTimeout(function() {
             currentSearchTerm = searchTerm;
             definitionsTable.ajax.reload();
-        }, 300); // 300ms delay
+        }, 300); 
     });
     
-    // Add language filter handler
+    
     $('#language-filter button').on('click', function() {
         $('#language-filter button').removeClass('active');
         $(this).addClass('active');
@@ -1185,28 +1185,28 @@ function initDefinitionsTable() {
     });
 }
 
-// Admin Dashboard Functions
+
 function loadAdminData() {
     loadUsersTable();
     loadDefinitionsAdminTable();
     loadGameStats();
 }
 
-// Function to load users table
+
 function loadUsersTable() {
     $.ajax({
         url: 'api.php?path=admin/users',
         method: 'GET',
         success: function(users) {
-            // Destroy existing DataTable if it exists
+            
             if (usersTable) {
                 usersTable.destroy();
             }
             
-            // Clear table body
+            
             $('#users-table tbody').empty();
             
-            // Add rows to table
+            
             $.each(users, function(i, user) {
                 const lastLogin = new Date(user.derniere_connexion).toLocaleString();
                 
@@ -1227,21 +1227,21 @@ function loadUsersTable() {
                 `);
             });
             
-            // Initialize DataTable
+            
             usersTable = $('#users-table').DataTable({
                 pageLength: 10,
-                order: [[4, 'desc']], // Sort by score by default
+                order: [[4, 'desc']], 
                 language: {
                     search: "Search users:"
                 }
             });
             
-            // Add event listeners for edit and delete buttons
+            
             $('#users-table').on('click', '.edit-user-btn', function() {
                 const userId = $(this).data('id');
                 const row = $(this).closest('tr');
                 
-                // Fill modal with user data
+                
                 $('#edit-user-id').val(userId);
                 $('#edit-username').val(row.find('td:eq(1)').text());
                 $('#edit-games-played').val(row.find('td:eq(2)').text());
@@ -1249,7 +1249,7 @@ function loadUsersTable() {
                 $('#edit-score').val(row.find('td:eq(4)').text());
                 $('#edit-is-admin').prop('checked', row.find('td:eq(6)').text().includes('Yes'));
                 
-                // Show modal
+                
                 $('#editUserModal').modal('show');
             });
             
@@ -1257,13 +1257,13 @@ function loadUsersTable() {
                 const userId = $(this).data('id');
                 const username = $(this).data('username');
                 
-                // Set delete modal data
+                
                 $('#delete-username').text(username);
                 
-                // Set data attribute on confirm button
+                
                 $('#confirm-delete-user-btn').data('id', userId);
                 
-                // Show modal
+                
                 $('#deleteUserModal').modal('show');
             });
         },
@@ -1280,22 +1280,22 @@ function loadUsersTable() {
     });
 }
 
-// Function to load definitions admin table
+
 function loadDefinitionsAdminTable() {
-    // Enhanced version with source column and actions
+    
     $.ajax({
         url: 'api.php?path=dump/50',
         method: 'GET',
         success: function(response) {
-            // Destroy existing DataTable if it exists
+            
             if (definitionsAdminTable) {
                 definitionsAdminTable.destroy();
             }
             
-            // Clear table body
+            
             $('#definitions-admin-table tbody').empty();
             
-            // Add rows to table
+            
             $.each(response.data, function(i, def) {
                 $('#definitions-admin-table tbody').append(`
                     <tr>
@@ -1312,28 +1312,28 @@ function loadDefinitionsAdminTable() {
                 `);
             });
             
-            // Initialize DataTable
+            
             definitionsAdminTable = $('#definitions-admin-table').DataTable({
                 pageLength: 10,
-                order: [[0, 'desc']], // Sort by ID by default
+                order: [[0, 'desc']], 
                 language: {
                     search: "Search definitions:"
                 }
             });
             
-            // Add event listeners for edit and delete buttons
+            
             $('#definitions-admin-table').on('click', '.edit-def-btn', function() {
                 const defId = $(this).data('id');
                 const row = $(this).closest('tr');
                 
-                // Fill modal with definition data
+                
                 $('#edit-definition-id').val(defId);
                 $('#edit-word').val(row.find('td:eq(2)').text());
                 $('#edit-definition-text').val(row.find('td:eq(3)').text());
                 $('#edit-language').val(row.find('td:eq(1)').text());
                 $('#edit-source').val(row.find('td:eq(4)').text());
                 
-                // Show modal
+                
                 $('#editDefinitionModal').modal('show');
             });
             
@@ -1341,13 +1341,13 @@ function loadDefinitionsAdminTable() {
                 const defId = $(this).data('id');
                 const word = $(this).data('word');
                 
-                // Set delete modal data
+                
                 $('#delete-word').text(word);
                 
-                // Set data attribute on confirm button
+                
                 $('#confirm-delete-definition-btn').data('id', defId);
                 
-                // Show modal
+                
                 $('#deleteDefinitionModal').modal('show');
             });
         },
@@ -1364,19 +1364,19 @@ function loadDefinitionsAdminTable() {
     });
 }
 
-// Function to load game statistics
+
 function loadGameStats() {
     $.ajax({
         url: 'api.php?path=admin/stats',
         method: 'GET',
         success: function(stats) {
-            // Update stats
+            
             $('#total-players').text(stats.totalPlayers);
             $('#total-games').text(stats.totalGames);
             $('#total-definitions').text(stats.totalDefinitions);
             $('#user-definitions').text(stats.userDefinitions);
             
-            // Update active users list
+            
             $('#active-users-list').empty();
             $.each(stats.activeUsers, function(i, user) {
                 const lastActive = new Date(user.derniere_connexion).toLocaleString();
@@ -1389,7 +1389,7 @@ function loadGameStats() {
                 `);
             });
             
-            // Update popular words list
+            
             $('#popular-words-list').empty();
             $.each(stats.popularWords, function(i, word) {
                 $('#popular-words-list').append(`
@@ -1401,7 +1401,7 @@ function loadGameStats() {
                 `);
             });
             
-            // Update admin leaderboard
+            
             $('#admin-leaderboard').empty();
             $.ajax({
                 url: 'api.php?path=admin/top/10',
@@ -1432,12 +1432,12 @@ function loadGameStats() {
     });
 }
 
-// Set up admin event handlers
+
 function setupAdminEventHandlers() {
-    // Users tab
+    
     $('#refresh-users-btn').on('click', loadUsersTable);
     
-    // Save user changes
+    
     $('#save-user-btn').on('click', function() {
         const userId = $('#edit-user-id').val();
         const gamesPlayed = $('#edit-games-played').val();
@@ -1456,9 +1456,9 @@ function setupAdminEventHandlers() {
             },
             success: function(response) {
                 $('#editUserModal').modal('hide');
-                loadUsersTable(); // Reload table
+                loadUsersTable(); 
                 
-                // Show success alert
+                
                 showAdminAlert('User updated successfully!', 'success');
             },
             error: function(xhr) {
@@ -1468,7 +1468,7 @@ function setupAdminEventHandlers() {
         });
     });
     
-    // Confirm delete user
+    
     $('#confirm-delete-user-btn').on('click', function() {
         const username = $('#delete-username').text();
         
@@ -1477,9 +1477,9 @@ function setupAdminEventHandlers() {
             method: 'GET',
             success: function(response) {
                 $('#deleteUserModal').modal('hide');
-                loadUsersTable(); // Reload table
+                loadUsersTable(); 
                 
-                // Show success alert
+                
                 showAdminAlert('User deleted successfully!', 'success');
             },
             error: function(xhr) {
@@ -1489,20 +1489,20 @@ function setupAdminEventHandlers() {
         });
     });
     
-    // Definitions tab
+    
     $('#refresh-definitions-btn').on('click', loadDefinitionsAdminTable);
     
-    // Add definition button
+    
     $('#add-definition-btn').on('click', function() {
-        // Clear form
-        $('#add-definition-form')[0].reset();
-        $('#add-source').val('admin'); // Default source
         
-        // Show modal
+        $('#add-definition-form')[0].reset();
+        $('#add-source').val('admin'); 
+        
+        
         $('#addDefinitionModal').modal('show');
     });
     
-    // Create definition
+    
     $('#create-definition-btn').on('click', function() {
         const word = $('#add-word').val();
         const definition = $('#add-definition-text').val();
@@ -1526,9 +1526,9 @@ function setupAdminEventHandlers() {
             },
             success: function(response) {
                 $('#addDefinitionModal').modal('hide');
-                loadDefinitionsAdminTable(); // Reload table
+                loadDefinitionsAdminTable(); 
                 
-                // Show success alert
+                
                 showAdminAlert('Definition added successfully!', 'success');
             },
             error: function(xhr) {
@@ -1538,7 +1538,7 @@ function setupAdminEventHandlers() {
         });
     });
     
-    // Save definition changes
+    
     $('#save-definition-btn').on('click', function() {
         const defId = $('#edit-definition-id').val();
         const word = $('#edit-word').val();
@@ -1557,9 +1557,9 @@ function setupAdminEventHandlers() {
             },
             success: function(response) {
                 $('#editDefinitionModal').modal('hide');
-                loadDefinitionsAdminTable(); // Reload table
+                loadDefinitionsAdminTable(); 
                 
-                // Show success alert
+                
                 showAdminAlert('Definition updated successfully!', 'success');
             },
             error: function(xhr) {
@@ -1569,7 +1569,7 @@ function setupAdminEventHandlers() {
         });
     });
     
-    // Confirm delete definition
+    
     $('#confirm-delete-definition-btn').on('click', function() {
         const defId = $(this).data('id');
         
@@ -1578,9 +1578,9 @@ function setupAdminEventHandlers() {
             method: 'GET',
             success: function(response) {
                 $('#deleteDefinitionModal').modal('hide');
-                loadDefinitionsAdminTable(); // Reload table
+                loadDefinitionsAdminTable(); 
                 
-                // Show success alert
+                
                 showAdminAlert('Definition deleted successfully!', 'success');
             },
             error: function(xhr) {
@@ -1590,11 +1590,11 @@ function setupAdminEventHandlers() {
         });
     });
     
-    // Admin tabs switched
+    
     $('#adminTabs button').on('click', function(e) {
         const targetTab = $(this).attr('id');
         
-        // Refresh data when switching to tab
+        
         if (targetTab === 'users-tab') {
             loadUsersTable();
         } else if (targetTab === 'definitions-tab') {
@@ -1605,12 +1605,12 @@ function setupAdminEventHandlers() {
     });
 }
 
-// Utility function to show admin alerts
+
 function showAdminAlert(message, type) {
-    // Remove any existing alerts
+    
     $('.admin-alert').remove();
     
-    // Create alert
+    
     const alert = $(`
         <div class="admin-alert alert alert-${type} alert-dismissible fade show">
             ${message}
@@ -1618,18 +1618,18 @@ function showAdminAlert(message, type) {
         </div>
     `);
     
-    // Add to page
+    
     $('#admin-dashboard-page').prepend(alert);
     
-    // Auto-hide after 5 seconds
+    
     setTimeout(function() {
         alert.alert('close');
     }, 5000);
 }
 
-// Leaderboard Functions
+
 function loadLeaderboard() {
-    // Load leaderboard data from the API
+    
     $.ajax({
         url: 'api.php?path=admin/top/5',
         method: 'GET',
@@ -1639,7 +1639,7 @@ function loadLeaderboard() {
         error: function(xhr) {
             console.error('Error loading leaderboard:', xhr);
             
-            // For demo, use mock data if API fails
+            
             const mockLeaderboard = [
                 { login: 'player1', score: 850 },
                 { login: 'player2', score: 720 },

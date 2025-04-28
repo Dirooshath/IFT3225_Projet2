@@ -1,10 +1,10 @@
 <?php
-// Put this at the very beginning of api.php
-// Disable display of errors (sends them to log instead)
+
+
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
-// Custom error handler that returns JSON
+
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
     header('Content-Type: application/json');
     echo json_encode([
@@ -15,7 +15,7 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
     exit;
 });
 
-// Handle fatal errors
+
 register_shutdown_function(function() {
     $error = error_get_last();
     if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
@@ -29,51 +29,47 @@ register_shutdown_function(function() {
     }
 });
 
-// Clean any output buffer
+
 if (ob_get_length()) ob_clean();
-// Include database connection
+
 require_once 'db-connect.php';
 
-// Start session if not already started
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Get request information
+
 $request_uri = $_SERVER['REQUEST_URI'];
 $method = $_SERVER['REQUEST_METHOD'];
 
-// Parse the URL
+
 $path_parts = parse_url($request_uri);
 $path = isset($path_parts['path']) ? $path_parts['path'] : '';
 
-// Handle POST requests for adding definitions
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_definition') {
     handleAddDefinition();
     exit;
 }
 
-// Handle POST requests for updating scores
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_score') {
     handleUpdateScore();
     exit;
 }
 
-// Check if this is an API request (using query parameter for path)
+
 if (isset($_GET['path'])) {
-    // API request - get the path from the query parameter
+    
     $path_segments = explode('/', trim($_GET['path'], '/'));
     handleApiRequest($method, $path_segments);
 } else {
-    // Regular request - serve the SPA
+    
     include 'index.html';
 }
 
-/**
- * Handle API requests
- * @param string $method HTTP method (GET, POST, etc.)
- * @param array $segments Path segments
- */
+
 function handleApiRequest($method, $segments) {
     if (empty($segments)) {
         outputJson(['error' => 'No API path specified']);
@@ -113,11 +109,7 @@ function handleApiRequest($method, $segments) {
     }
 }
 
-/**
- * Output JSON response
- * @param mixed $data Data to encode as JSON
- * @param int $status HTTP status code
- */
+
 function outputJson($data, $status = 200) {
     header('Content-Type: application/json');
     http_response_code($status);
@@ -125,33 +117,31 @@ function outputJson($data, $status = 200) {
     exit;
 }
 
-/* -----------------------------------------------------------------------
-   Gamer Management Functions (API Endpoints)
------------------------------------------------------------------------ */
+
 function handleGamers($method, $segments) {
     if (count($segments) < 2) {
         outputJson(['error' => 'Invalid gamers endpoint']);
         return;
     }
     
-    // /gamers/<joueur>
+    
     if (count($segments) == 2 && $method === 'GET') {
         $joueur = $segments[1];
         getGamer($joueur);
     }
-    // /gamers/add/<joueur>/<pwd>
+    
     elseif (count($segments) >= 4 && $segments[1] === 'add') {
         $joueur = $segments[2];
         $pwd = $segments[3];
         addGamer($joueur, $pwd);
     }
-    // /gamers/login/<joueur>/<pwd>
+    
     elseif (count($segments) >= 4 && $segments[1] === 'login') {
         $joueur = $segments[2];
         $pwd = $segments[3];
         loginGamer($joueur, $pwd);
     }
-    // /gamers/logout/<joueur>/<pwd>
+    
     elseif (count($segments) >= 4 && $segments[1] === 'logout') {
         $joueur = $segments[2];
         $pwd = $segments[3];
@@ -179,7 +169,7 @@ function getGamer($login) {
 function addGamer($login, $pwd) {
     $pdo = dbConnect();
     
-    // Check if user already exists
+    
     $stmt = $pdo->prepare("SELECT id FROM joueurs WHERE login = ?");
     $stmt->execute([$login]);
     
@@ -188,18 +178,18 @@ function addGamer($login, $pwd) {
         return;
     }
     
-    // Hash password
+    
     $hash = password_hash($pwd, PASSWORD_DEFAULT);
     
-    // Insert new user
+    
     $stmt = $pdo->prepare("INSERT INTO joueurs (login, pwd, parties_jouees, parties_gagnees, score, derniere_connexion) 
                          VALUES (?, ?, 0, 0, 0, NOW())");
     $stmt->execute([$login, $hash]);
     
-    // Get the new user ID
+    
     $newId = $pdo->lastInsertId();
     
-    // Start session for new user
+    
     $_SESSION['user_id'] = $newId;
     $_SESSION['user_login'] = $login;
     
@@ -218,11 +208,11 @@ function loginGamer($login, $pwd) {
     }
     
     if (password_verify($pwd, $user['pwd'])) {
-        // Update last login
+        
         $updateStmt = $pdo->prepare("UPDATE joueurs SET derniere_connexion = NOW() WHERE id = ?");
         $updateStmt->execute([$user['id']]);
         
-        // Set session
+        
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_login'] = $login;
         $_SESSION['is_admin'] = (bool)$user['is_admin'];
@@ -238,31 +228,29 @@ function loginGamer($login, $pwd) {
 }
 
 function logoutGamer($login, $pwd) {
-    // Clear session
+    
     session_unset();
     session_destroy();
     
     outputJson(['message' => 'Logout successful']);
 }
 
-/* -----------------------------------------------------------------------
-   Admin Functions (API Endpoints)
------------------------------------------------------------------------ */
+
 function handleAdmin($method, $segments) {
     if (count($segments) < 2) {
         outputJson(['error' => 'Invalid admin endpoint']);
         return;
     }
     
-    // Check admin authorization for all admin endpoints except 'top'
-    // (top scores can be viewed by anyone)
+    
+    
     if ($segments[1] !== 'top' && 
         (!isset($_SESSION['is_admin']) || !$_SESSION['is_admin'])) {
         outputJson(['error' => 'Unauthorized access. Admin privileges required.'], 403);
         return;
     }
     
-    // Admin endpoints
+    
     if ($segments[1] === 'users' && $method === 'GET') {
         getAllUsers();
     }
@@ -277,7 +265,7 @@ function handleAdmin($method, $segments) {
     elseif ($segments[1] === 'stats' && $method === 'GET') {
         getGameStats();
     }
-    // Original endpoints
+    
     elseif ($segments[1] === 'top') {
         $nb = isset($segments[2]) ? (int)$segments[2] : 5;
         getTopScores($nb);
@@ -308,7 +296,7 @@ function getTopScores($nb) {
 function deleteGamer($login) {
     $pdo = dbConnect();
     
-    // Get user ID first
+    
     $stmt = $pdo->prepare("SELECT id FROM joueurs WHERE login = ?");
     $stmt->execute([$login]);
     $user = $stmt->fetch();
@@ -318,7 +306,7 @@ function deleteGamer($login) {
         return;
     }
     
-    // Delete user
+    
     $stmt = $pdo->prepare("DELETE FROM joueurs WHERE id = ?");
     $stmt->execute([$user['id']]);
     
@@ -328,7 +316,7 @@ function deleteGamer($login) {
 function deleteDefinition($defId) {
     $pdo = dbConnect();
     
-    // Check if definition exists
+    
     $stmt = $pdo->prepare("SELECT id FROM definitions WHERE id = ?");
     $stmt->execute([$defId]);
     
@@ -337,18 +325,16 @@ function deleteDefinition($defId) {
         return;
     }
     
-    // Delete definition
+    
     $stmt = $pdo->prepare("DELETE FROM definitions WHERE id = ?");
     $stmt->execute([$defId]);
     
     outputJson(['id' => $defId, 'message' => 'Definition deleted successfully']);
 }
 
-/**
- * Get all users for admin display
- */
+
 function getAllUsers() {
-    // Verify admin status
+    
     if (!isset($_SESSION['is_admin']) || !$_SESSION['is_admin']) {
         outputJson(['error' => 'Unauthorized access'], 403);
         return;
@@ -367,17 +353,15 @@ function getAllUsers() {
     outputJson($users);
 }
 
-/**
- * Update user details (admin function)
- */
+
 function updateUser($userId, $data) {
-    // Verify admin status
+    
     if (!isset($_SESSION['is_admin']) || !$_SESSION['is_admin']) {
         outputJson(['error' => 'Unauthorized access'], 403);
         return;
     }
     
-    // Validate input
+    
     if (!isset($data['parties_jouees']) || !isset($data['parties_gagnees']) || 
         !isset($data['score']) || !isset($data['is_admin'])) {
         outputJson(['error' => 'Missing required fields'], 400);
@@ -405,17 +389,15 @@ function updateUser($userId, $data) {
     outputJson(['message' => 'User updated successfully']);
 }
 
-/**
- * Update a definition (admin function)
- */
+
 function updateDefinition($defId, $data) {
-    // Verify admin status
+    
     if (!isset($_SESSION['is_admin']) || !$_SESSION['is_admin']) {
         outputJson(['error' => 'Unauthorized access'], 403);
         return;
     }
     
-    // Validate input
+    
     if (!isset($data['word']) || !isset($data['definition']) || 
         !isset($data['language']) || !isset($data['source'])) {
         outputJson(['error' => 'Missing required fields'], 400);
@@ -443,11 +425,9 @@ function updateDefinition($defId, $data) {
     outputJson(['message' => 'Definition updated successfully']);
 }
 
-/**
- * Get game statistics for admin dashboard
- */
+
 function getGameStats() {
-    // Verify admin status
+    
     if (!isset($_SESSION['is_admin']) || !$_SESSION['is_admin']) {
         outputJson(['error' => 'Unauthorized access'], 403);
         return;
@@ -455,24 +435,24 @@ function getGameStats() {
     
     $pdo = dbConnect();
     
-    // Get total players
+    
     $stmt = $pdo->query("SELECT COUNT(*) as total FROM joueurs");
     $totalPlayers = $stmt->fetch()['total'];
     
-    // Get total games played
+    
     $stmt = $pdo->query("SELECT SUM(parties_jouees) as total FROM joueurs");
     $totalGames = $stmt->fetch()['total'] ?: 0;
     
-    // Get total definitions
+    
     $stmt = $pdo->query("SELECT COUNT(*) as total FROM definitions");
     $totalDefinitions = $stmt->fetch()['total'];
     
-    // Get user-created definitions (not from 'system')
+    
     $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM definitions WHERE source != ?");
     $stmt->execute(['system']);
     $userDefinitions = $stmt->fetch()['total'];
     
-    // Get most active users
+    
     $stmt = $pdo->prepare("
         SELECT login, parties_jouees, derniere_connexion 
         FROM joueurs 
@@ -482,7 +462,7 @@ function getGameStats() {
     $stmt->execute();
     $activeUsers = $stmt->fetchAll();
     
-    // Get popular words (words with most definitions)
+    
     $stmt = $pdo->prepare("
         SELECT mot as word, langue as language, COUNT(*) as count
         FROM definitions
@@ -503,11 +483,9 @@ function getGameStats() {
     ]);
 }
 
-/* -----------------------------------------------------------------------
-   Word Functions (API Endpoints)
------------------------------------------------------------------------ */
+
 function handleWord($method, $segments) {
-    // /word[/<nb>[/<from>]]
+    
     $nb = isset($segments[1]) ? (int)$segments[1] : 10;
     $from = isset($segments[2]) ? (int)$segments[2] : 1;
     
@@ -518,7 +496,7 @@ function handleWord($method, $segments) {
     
     $pdo = dbConnect();
     
-    // Get distinct words with definitions
+    
     $stmt = $pdo->prepare("
         SELECT id, mot AS word, definition
         FROM definitions
@@ -531,7 +509,7 @@ function handleWord($method, $segments) {
     
     $rows = $stmt->fetchAll();
     
-    // Organize data by word
+    
     $words = [];
     foreach ($rows as $row) {
         $wordKey = strtoupper($row['word']);
@@ -550,9 +528,7 @@ function handleWord($method, $segments) {
     outputJson(array_values($words));
 }
 
-/* -----------------------------------------------------------------------
-   Game Functions (API Endpoints)
------------------------------------------------------------------------ */
+
 function handleJeu($method, $segments) {
     if (count($segments) < 2) {
         outputJson(['error' => 'Invalid game endpoint']);
@@ -562,7 +538,7 @@ function handleJeu($method, $segments) {
     $gameType = $segments[1];
     
     if ($gameType === 'word') {
-        // /jeu/word[/<lg>[/<time>[/<hint>]]]
+        
         $lg = isset($segments[2]) ? $segments[2] : 'en';
         $time = isset($segments[3]) ? (int)$segments[3] : 60;
         $hint = isset($segments[4]) ? (int)$segments[4] : 10;
@@ -570,7 +546,7 @@ function handleJeu($method, $segments) {
         getWordGame($lg, $time, $hint);
     }
     elseif ($gameType === 'def') {
-        // /jeu/def[/<lg>[/<time>]]
+        
         $lg = isset($segments[2]) ? $segments[2] : 'en';
         $time = isset($segments[3]) ? (int)$segments[3] : 60;
         
@@ -598,29 +574,29 @@ function getWordGame($lg, $time, $hint) {
         return;
     }
     
-    // Get words of the same length for potential suggestions
+    
     $wordLength = strlen($word['word']);
     $stmt = $pdo->prepare("
         SELECT DISTINCT mot AS word
         FROM definitions
         WHERE langue = ? 
         AND LENGTH(mot) = ?
-        LIMIT 100  /* Increased for more options */
+        LIMIT 100  
     ");
     $stmt->execute([$lg, $wordLength]);
     $allWords = array_column($stmt->fetchAll(), 'word');
     
-    // Filter to include only words that share at least 1-2 letters with our target word
+    
     $targetWord = strtoupper($word['word']);
     $suggestions = [];
     
     foreach ($allWords as $suggestion) {
-        // Skip the exact word
+        
         if (strtoupper($suggestion) === $targetWord) {
             continue;
         }
         
-        // Count shared letters in the same position
+        
         $sharedLetters = 0;
         $suggestionUpper = strtoupper($suggestion);
         
@@ -630,15 +606,15 @@ function getWordGame($lg, $time, $hint) {
             }
         }
         
-        // Add word if it shares at least 1-2 letters in the same positions
+        
         if ($sharedLetters >= 1) {
             $suggestions[] = $suggestion;
         }
     }
     
-    // If we don't have enough suggestions, include some random ones to make it less obvious
+    
     if (count($suggestions) < 10) {
-        // Add random words of the same length
+        
         foreach ($allWords as $word) {
             if (!in_array($word, $suggestions) && strtoupper($word) !== $targetWord) {
                 $suggestions[] = $word;
@@ -647,10 +623,10 @@ function getWordGame($lg, $time, $hint) {
         }
     }
     
-    // Limit to 20 suggestions
+    
     $suggestions = array_slice($suggestions, 0, 20);
     
-    // Return enhanced game data
+    
     outputJson([
         'word' => $word['word'],
         'definition' => $word['definition'],
@@ -679,7 +655,7 @@ function getDefGame($lg, $time) {
         return;
     }
     
-    // Return game data
+    
     outputJson([
         'wordId' => $word['id'],
         'word' => $word['word'],
@@ -687,22 +663,18 @@ function getDefGame($lg, $time) {
     ]);
 }
 
-/* -----------------------------------------------------------------------
-   Definition Functions (API Endpoints)
------------------------------------------------------------------------ */
-/**
- * Extremely simplified function to handle definition listings with basic search
- */
+
+
 function handleDump($method, $segments) {
-    // Get basic parameters 
+    
     $step = isset($segments[1]) ? intval($segments[1]) : 10;
     $offset = isset($segments[2]) ? intval($segments[2]) : 0;
     
-    // Default limits
+    
     if ($step <= 0) $step = 10;
     if ($offset < 0) $offset = 0;
     
-    // Handle DataTables pagination
+    
     if (isset($_GET['start']) && isset($_GET['length'])) {
         $offset = intval($_GET['start']);
         $step = intval($_GET['length']);
@@ -710,20 +682,20 @@ function handleDump($method, $segments) {
     
     $pdo = dbConnect();
     
-    // Get search and filter parameters
+    
     $searchTerm = isset($_GET['term']) ? trim($_GET['term']) : '';
     $language = isset($_GET['lang']) ? trim($_GET['lang']) : '';
     
-    // Get sorting parameters
+    
     $sortColumnIndex = isset($_GET['sortColumn']) ? intval($_GET['sortColumn']) : 0;
     $sortDirection = isset($_GET['sortDir']) ? strtoupper($_GET['sortDir']) : 'ASC';
     
-    // Validate sort direction
+    
     if ($sortDirection != 'ASC' && $sortDirection != 'DESC') {
         $sortDirection = 'ASC';
     }
     
-    // Map column index to actual column name
+    
     $columns = [
         0 => 'id',
         1 => 'langue',
@@ -731,15 +703,15 @@ function handleDump($method, $segments) {
         3 => 'definition'
     ];
     
-    // Default to sorting by ID if invalid column index
+    
     $sortColumn = isset($columns[$sortColumnIndex]) ? $columns[$sortColumnIndex] : 'id';
     
-    // Build the query
+    
     $sql = "SELECT id, langue AS language, mot AS word, definition, source FROM definitions WHERE 1=1";
     $countSql = "SELECT COUNT(*) as total FROM definitions WHERE 1=1";
     $params = [];
     
-    // Add search condition if needed
+    
     if (!empty($searchTerm)) {
         $sql .= " AND (mot LIKE ? OR definition LIKE ?)";
         $countSql .= " AND (mot LIKE ? OR definition LIKE ?)";
@@ -747,30 +719,30 @@ function handleDump($method, $segments) {
         $params[] = "%$searchTerm%";
     }
     
-    // Add language filter if needed
+    
     if (!empty($language)) {
         $sql .= " AND langue = ?";
         $countSql .= " AND langue = ?";
         $params[] = $language;
     }
     
-    // Add ordering and limit
+    
     $sql .= " ORDER BY $sortColumn $sortDirection LIMIT ?, ?";
     
-    // Get total count for pagination
+    
     $countStmt = $pdo->prepare($countSql);
     $countStmt->execute($params);
     $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
     
-    // Execute the main query
+    
     $stmt = $pdo->prepare($sql);
     
-    // Bind all search/filter params
+    
     foreach ($params as $index => $param) {
         $stmt->bindValue($index + 1, $param);
     }
     
-    // Bind pagination params
+    
     $nextIndex = count($params) + 1;
     $stmt->bindValue($nextIndex, $offset, PDO::PARAM_INT);
     $stmt->bindValue($nextIndex + 1, $step, PDO::PARAM_INT);
@@ -778,7 +750,7 @@ function handleDump($method, $segments) {
     $stmt->execute();
     $definitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Output in DataTables format
+    
     outputJson([
         'draw' => isset($_GET['draw']) ? intval($_GET['draw']) : 1,
         'recordsTotal' => $totalCount,
@@ -787,11 +759,9 @@ function handleDump($method, $segments) {
     ]);
 }
 
-/* -----------------------------------------------------------------------
-   Documentation Function
------------------------------------------------------------------------ */
+
 function handleDoc() {
-    // Output API documentation in JSON format
+    
     $endpoints = [
         'gamers' => [
             'GET /gamers/{joueur}' => 'Get information about a player',
@@ -824,23 +794,21 @@ function handleDoc() {
     outputJson(['endpoints' => $endpoints]);
 }
 
-/**
- * Handle adding a new definition
- */
+
 function handleAddDefinition() {
-    // Check if required parameters are provided
+    
     if (!isset($_POST['word']) || !isset($_POST['definition']) || !isset($_POST['language'])) {
         outputJson(['error' => 'Missing required parameters'], 400);
         return;
     }
     
-    // Get parameters
+    
     $word = $_POST['word'];
     $definition = $_POST['definition'];
     $language = $_POST['language'];
     $user = $_POST['user'] ?? 'Guest';
     
-    // Validate definition
+    
     if (strlen($definition) < 5) {
         outputJson(['error' => 'Definition must be at least 5 characters long'], 400);
         return;
@@ -851,7 +819,7 @@ function handleAddDefinition() {
         return;
     }
     
-    // Check if definition already exists for this word
+    
     $pdo = dbConnect();
     $stmt = $pdo->prepare("
         SELECT id FROM definitions 
@@ -864,17 +832,17 @@ function handleAddDefinition() {
         return;
     }
     
-    // Insert the new definition
+    
     $stmt = $pdo->prepare("
         INSERT INTO definitions (mot, definition, langue, source) 
         VALUES (?, ?, ?, ?)
     ");
     $stmt->execute([$word, $definition, $language, $user]);
     
-    // Get the inserted ID
+    
     $newId = $pdo->lastInsertId();
     
-    // If a user is logged in, update their score
+    
     if (isset($_SESSION['user_id'])) {
         $userId = $_SESSION['user_id'];
         $stmt = $pdo->prepare("
@@ -890,21 +858,19 @@ function handleAddDefinition() {
     ]);
 }
 
-/**
- * Handle updating a player's score
- */
+
 function handleUpdateScore() {
-    // Check if required parameters are provided
+    
     if (!isset($_POST['username']) || !isset($_POST['score'])) {
         outputJson(['error' => 'Missing required parameters'], 400);
         return;
     }
     
-    // Get parameters
+    
     $username = $_POST['username'];
     $score = (int)$_POST['score'];
     
-    // Update score in database
+    
     $pdo = dbConnect();
     $stmt = $pdo->prepare("
         UPDATE joueurs 
